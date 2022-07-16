@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.0.10'
+}
+
+javafx {
+    version = "17.0.1"
+    modules = [ 'javafx.controls', 'javafx.fxml' ]
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        url 'https://repo.lemaik.de/'
+    }
+}
+
+dependencies {
+    implementation 'se.llbit:chunky-core:2.5.0-SNAPSHOT'
+    implementation 'org.apache.commons:commons-math3:3.2'
+    implementation 'it.unimi.dsi:fastutil:8.4.4'
+}
+
+jar {
+    processResources.exclude('**/.idea')
+}
