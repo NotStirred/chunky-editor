@@ -1,0 +1,8 @@
+{
+  "name": "ChunkyEditor",
+  "author": "NotStirred",
+  "main": "io.github.notstirred.chunkyeditor.Editor",
+  "version": "0.0.1",
+  "targetVersion": "2.5.0",
+  "description": "Chunk editing for Chunky"
+}
