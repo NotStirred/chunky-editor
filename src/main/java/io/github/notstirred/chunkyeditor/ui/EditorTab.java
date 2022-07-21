@@ -83,7 +83,21 @@ public class EditorTab implements RenderControlsTab {
         });
         Button undoPreviousAction = new Button("Undo");
         undoPreviousAction.setOnMouseClicked(event -> {
+            VanillaStateTracker stateTracker = editor.getStateTracker();
 
+            if (stateTracker == null) { // user said no to confirmation
+                return;
+            }
+
+            CompletableFuture<Void> undoFuture = stateTracker.undo();
+
+            try {
+                Void v = undoFuture.get();
+            } catch (ExecutionException e) {
+                Log.warn("Deletion completed exceptionally", e);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         });
         box.getChildren().add(deleteSelectedChunks);
         box.getChildren().add(undoPreviousAction);
