@@ -1,4 +1,4 @@
-package io.github.notstirred.chunkyeditor.state;
+package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.minecraft.WorldLock;
@@ -10,9 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.Future;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * Before any changes are made to the world, it should be checked against the current state to verify nothing has changed
@@ -105,68 +102,5 @@ public class VanillaStateTracker {
      */
     public void removeAllStates() {
         this.states.clear();
-    }
-
-    private static class InternalState implements State<VanillaRegionPos> {
-        private final VanillaRegionPos pos;
-        /** The entire header for this state */
-        final byte[] state;
-
-        private InternalState(VanillaRegionPos pos, byte[] state) {
-            this.pos = pos;
-            this.state = state;
-        }
-
-        private static InternalState create(VanillaRegionPos pos, Path worldDirectory) {
-            Path regionPath = worldDirectory.resolve("region").resolve(pos.fileName());
-            return null;
-        }
-
-        public void writeState(Path worldDirectory) throws IOException {
-            Path regionPath = worldDirectory.resolve("region").resolve(pos.fileName());
-            try (FileOutputStream file = new FileOutputStream(regionPath.toFile(), false)) {
-                file.write(this.state);
-            }
-        }
-
-        @Override
-        public VanillaRegionPos position() {
-            return this.pos;
-        }
-    }
-
-    /**
-     * Externally modified region state, such as minecraft writing to the region file
-     */
-    private static class ExternalState implements State<VanillaRegionPos> {
-        private final VanillaRegionPos pos;
-
-        private final byte[] state;
-
-        private ExternalState(VanillaRegionPos pos, byte[] state) {
-            this.pos = pos;
-            this.state = state;
-        }
-
-        private static ExternalState create(VanillaRegionPos pos, Path worldDirectory) throws IOException {
-            Path regionPath = worldDirectory.resolve("region").resolve(pos.fileName());
-            byte[] data = new byte[HEADER_SIZE_BYTES];
-            try (RandomAccessFile file = new RandomAccessFile(regionPath.toFile(), "r")) {
-                file.readFully(data);
-            }
-            return new ExternalState(pos, data);
-        }
-
-        public void writeState(Path worldDirectory) throws IOException {
-            Path regionPath = worldDirectory.resolve("region").resolve(pos.fileName());
-            try (FileOutputStream file = new FileOutputStream(regionPath.toFile())) {
-                file.write(this.state);
-            }
-        }
-
-        @Override
-        public VanillaRegionPos position() {
-            return null;
-        }
     }
 }

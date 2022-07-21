@@ -1,7 +1,7 @@
 package io.github.notstirred.chunkyeditor;
 
 import io.github.notstirred.chunkyeditor.minecraft.WorldLock;
-import io.github.notstirred.chunkyeditor.state.VanillaStateTracker;
+import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
 import io.github.notstirred.chunkyeditor.ui.EditorTab;
 import se.llbit.chunky.Plugin;
 import se.llbit.chunky.main.Chunky;

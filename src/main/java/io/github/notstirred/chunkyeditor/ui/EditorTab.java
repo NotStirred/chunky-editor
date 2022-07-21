@@ -2,7 +2,7 @@ package io.github.notstirred.chunkyeditor.ui;
 
 import io.github.notstirred.chunkyeditor.Editor;
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
-import io.github.notstirred.chunkyeditor.state.VanillaStateTracker;
+import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
