@@ -63,8 +63,8 @@ public class EditorTab implements RenderControlsTab {
                     return; // We haven't started yet, so can safely cancel
                 }
 
-
                 // do chunk deletion
+                var deletionFuture = stateTracker.deleteChunks(this.editor::submitTask, regionSelection);
 
                 // take snapshot of new state to warn user if anything changed when they press undo
                 stateTracker.snapshotState(regions);

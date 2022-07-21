@@ -87,7 +87,7 @@ public class Editor implements Plugin {
 
             WorldLock worldLock = WorldLock.of(worldDirectory.toPath());
             if (worldLock.tryLock()) {
-                return new VanillaStateTracker(worldDirectory.toPath(), worldLock);
+                return new VanillaStateTracker(world, worldLock);
             } else {
                 return null;
             }
