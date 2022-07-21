@@ -6,12 +6,15 @@ import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
 import javafx.scene.layout.VBox;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.ui.controller.ChunkyFxController;
 import se.llbit.chunky.ui.controller.RenderControlsFxController;
 import se.llbit.chunky.ui.render.RenderControlsTab;
 import se.llbit.chunky.world.ChunkPosition;
+import se.llbit.fxutil.Dialogs;
 import se.llbit.log.Log;
 
 import java.io.EOFException;
@@ -42,6 +45,16 @@ public class EditorTab implements RenderControlsTab {
                     return;
 
                 Collection<ChunkPosition> chunkSelection = this.chunkyFxController.getChunkSelection().getSelection();
+
+                Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
+                        "Confirm chunk deletion",
+                        String.format("Do you want to delete %d chunks?", chunkSelection.size()),
+                        "These chunks will be removed from your actual minecraft world\nIf the world is open in minecraft, chunky WILL break your world.\nBe sure to have a backup!",
+                        String.format("I do want to delete %d chunks", chunkSelection.size())
+                );
+                if(confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                    return;
+                }
 
                 Map<VanillaRegionPos, List<ChunkPosition>> regionSelection = new HashMap<>();
                 for (ChunkPosition chunkPosition : chunkSelection) {
