@@ -230,7 +230,7 @@ public class VanillaStateTracker {
             if (result == null || !result) { // execution or lock failure, no need to update
                 return;
             }
-            Platform.runLater(() -> regionSelection.forEach((regionPos, chunkPositions) -> {
+            regionSelection.forEach((regionPos, chunkPositions) -> {
                 Region region = world.getRegion(ChunkPosition.get(regionPos.x, regionPos.z));
                 for (ChunkPosition chunkPos : chunkPositions) {
                     Chunk chunk = world.getChunk(chunkPos);
@@ -240,8 +240,8 @@ public class VanillaStateTracker {
                         world.chunkDeleted(chunkPos);
                     }
                 }
-            }));
-        });
+            });
+        }, Platform::runLater);
 
         return deletionFuture;
     }
@@ -258,34 +258,32 @@ public class VanillaStateTracker {
         Map<VanillaRegionPos, State<VanillaRegionPos>> previousState = this.states.get(currentStateIdx);
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
-        previousState.forEach((regionPos, state) -> {
-            try {
-                //TODO: only write to regions modified since the snapshot was taken
-                state.writeState(this.regionDirectory);
-                writtenRegions.add(state.position());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        CompletableFuture<Void> undoFuture = CompletableFuture.runAsync(() -> {
+            previousState.forEach((regionPos, state) -> {
+                try {
+                    //TODO: only write to regions modified since the snapshot was taken
+                    state.writeState(this.regionDirectory);
+                    writtenRegions.add(state.position());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
         });
 
-        Platform.runLater(() -> writtenRegions.forEach(regionPos -> {
-            Region region = world.getRegion(ChunkPosition.get(regionPos.x, regionPos.z));
-            region.parse(0, 0);
-            for (int x = 0; x < 32; x++) {
-                for (int z = 0; z < 32; z++) {
-                    ChunkPosition chunkPos = ChunkPosition.get(x, z);
-                    world.chunkUpdated(chunkPos);
-//                    if (chunk.isEmpty()) {
-//                        Accessor.invoke_MCRegion$setChunk((MCRegion) region, chunkPos, new Chunk(chunkPos, world));
-//                    }
+        undoFuture.whenCompleteAsync((v, throwable) -> {
+            writtenRegions.forEach(regionPos -> {
+                Region region = world.getRegion(ChunkPosition.get(regionPos.x, regionPos.z));
+                region.parse(0, 0);
+                for (int x = 0; x < 32; x++) {
+                    for (int z = 0; z < 32; z++) {
+                        ChunkPosition chunkPos = ChunkPosition.get(x, z);
+                        world.chunkUpdated(chunkPos);
+                        // TODO: should I MCRegion#setChunk here to make refreshing the map view faster?
+                    }
                 }
-            }
-        }));
-        return CompletableFuture.completedFuture(null);
-    }
-
-    public void redo() {
-
+            });
+        }, Platform::runLater);
+        return undoFuture;
     }
 
     private static class StateGroup {
