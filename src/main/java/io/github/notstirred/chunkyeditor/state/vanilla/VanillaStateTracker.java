@@ -16,14 +16,13 @@ import java.util.concurrent.Future;
  * If there are changes
  */
 public class VanillaStateTracker {
-    private static final int HEADER_SIZE_BYTES = 4096;
-
-    private static final int INVALID = -1;
+    private static final int NO_STATE = -1;
+    protected static final int HEADER_SIZE_BYTES = 4096;
 
     private final Path regionDirectory;
 
     private final List<State<VanillaRegionPos>[]> states = new ArrayList<>();
-    private int currentStateIdx = -1; // if -1, there is no current state
+    private int currentStateIdx = NO_STATE;
 
 
     private final WorldLock worldLock;
@@ -71,7 +70,7 @@ public class VanillaStateTracker {
         removeFutureStates();
 
         State<VanillaRegionPos>[] snapshot = snapshot(regionPositions);
-        if (this.currentStateIdx == INVALID) {
+        if (this.currentStateIdx == NO_STATE) {
             this.states.add(snapshot);
             this.currentStateIdx = 0;
         } else {
@@ -89,7 +88,7 @@ public class VanillaStateTracker {
      * Remove all states after the current one
      */
     public void removeFutureStates() {
-        if(this.currentStateIdx == INVALID) {
+        if(this.currentStateIdx == NO_STATE) {
             return;
         }
         for (int i = 0; i < this.states.size() - this.currentStateIdx - 1; i++) {
