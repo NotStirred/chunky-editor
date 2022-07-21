@@ -251,6 +251,9 @@ public class VanillaStateTracker {
             return CompletableFuture.completedFuture(null);
         }
 
+        if (!worldLock.tryLock())
+            return CompletableFuture.completedFuture(null);
+
         currentStateIdx--; // we decrement first so that if there are errors the user can cancel and redo
         Map<VanillaRegionPos, State<VanillaRegionPos>> previousState = this.states.get(currentStateIdx);
 
