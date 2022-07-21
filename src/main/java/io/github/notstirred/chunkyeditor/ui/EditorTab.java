@@ -18,6 +18,8 @@ import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class EditorTab implements RenderControlsTab {
     protected final VBox box;
@@ -36,9 +38,8 @@ public class EditorTab implements RenderControlsTab {
             try {
                 VanillaStateTracker stateTracker = editor.getStateTracker();
 
-                if (stateTracker == null) { // user said no to confirmation
+                if (stateTracker == null) // user said no to confirmation
                     return;
-                }
 
                 Collection<ChunkPosition> chunkSelection = this.chunkyFxController.getChunkSelection().getSelection();
 
@@ -65,6 +66,14 @@ public class EditorTab implements RenderControlsTab {
 
                 // do chunk deletion
                 var deletionFuture = stateTracker.deleteChunks(this.editor::submitTask, regionSelection);
+                try {
+                    //TODO: don't immediately wait for the future
+                    deletionFuture.get();
+                } catch (ExecutionException e) {
+                    Log.warn("Deletion completed exceptionally", e);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
 
                 // take snapshot of new state to warn user if anything changed when they press undo
                 stateTracker.snapshotState(regions);
