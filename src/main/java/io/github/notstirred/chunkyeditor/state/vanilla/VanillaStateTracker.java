@@ -193,6 +193,7 @@ public class VanillaStateTracker {
      */
     public void removeAllStates() {
         this.states.clear();
+        this.currentStateIdx = NO_STATE;
     }
 
     public CompletableFuture<Boolean> deleteChunks(Executor taskExecutor, Map<VanillaRegionPos, List<ChunkPosition>> regionSelection) {

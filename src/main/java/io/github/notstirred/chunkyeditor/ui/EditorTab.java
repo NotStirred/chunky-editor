@@ -8,7 +8,8 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.TitledPane;
+import javafx.scene.layout.*;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.ui.controller.ChunkyFxController;
 import se.llbit.chunky.ui.controller.RenderControlsFxController;
@@ -112,8 +113,34 @@ public class EditorTab implements RenderControlsTab {
                 throw new RuntimeException(e);
             }
         });
-        box.getChildren().add(deleteSelectedChunks);
-        box.getChildren().add(undoPreviousAction);
+
+        GridPane optionsGrid = new GridPane();
+        optionsGrid.setHgap(6);
+        optionsGrid.add(deleteSelectedChunks, 0, 0);
+        optionsGrid.add(undoPreviousAction, 1, 0);
+
+        GridPane advancedOptionsGrid = new GridPane();
+        advancedOptionsGrid.setHgap(6);
+
+        Button clearUndoStates = new Button("Clear Undo States");
+        clearUndoStates.setOnMouseClicked(event -> {
+            VanillaStateTracker stateTracker = editor.getStateTracker();
+
+            if (stateTracker == null) { // user said no to confirmation
+                return;
+            }
+
+            stateTracker.removeAllStates();
+        });
+        advancedOptionsGrid.add(clearUndoStates, 0, 0);
+
+        TitledPane advancedOptionsPane = new TitledPane("Advanced Options", advancedOptionsGrid);
+        advancedOptionsPane.setExpanded(false);
+        advancedOptionsPane.setAnimated(false);
+        advancedOptionsPane.setMaxWidth(400);
+
+        box.getChildren().add(optionsGrid);
+        box.getChildren().add(advancedOptionsPane);
     }
 
     public void setController(RenderControlsFxController controller) {
