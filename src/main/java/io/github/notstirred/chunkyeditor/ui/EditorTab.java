@@ -21,6 +21,7 @@ import se.llbit.log.Log;
 import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -80,6 +81,14 @@ public class EditorTab implements RenderControlsTab {
 
                 // do chunk deletion
                 var deletionFuture = stateTracker.deleteChunks(this.editor::submitTask, regionSelection);
+                deletionFuture = deletionFuture.whenCompleteAsync((result, throwable) -> {
+                    // take snapshot of new state to warn user if anything changed when they press undo
+                    try {
+                        stateTracker.snapshotState(regions);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
                 try {
                     //TODO: don't immediately wait for the future
                     deletionFuture.get();
@@ -88,9 +97,6 @@ public class EditorTab implements RenderControlsTab {
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-
-                // take snapshot of new state to warn user if anything changed when they press undo
-                stateTracker.snapshotState(regions);
             } catch (Throwable t) {
                 t.printStackTrace();
             }
@@ -103,10 +109,10 @@ public class EditorTab implements RenderControlsTab {
                 return;
             }
 
-            CompletableFuture<Void> undoFuture = stateTracker.undo();
+            CompletableFuture<Boolean> undoFuture = stateTracker.undo();
 
             try {
-                Void v = undoFuture.get();
+                Boolean b = undoFuture.get();
             } catch (ExecutionException e) {
                 Log.warn("Deletion completed exceptionally", e);
             } catch (InterruptedException e) {

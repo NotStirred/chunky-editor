@@ -20,7 +20,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
 
 /**
  * Before any changes are made to the world, it should be checked against the current state to verify nothing has changed
@@ -98,16 +97,15 @@ public class VanillaStateTracker {
      */
     @Nullable
     private Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot(List<VanillaRegionPos> regionPositions) throws IOException {
+        Map<VanillaRegionPos, State<VanillaRegionPos>> newStates = new HashMap<>();
         if (this.currentStateIdx == NO_STATE) {
             // snapshot can go ahead with no checks
-            Map<VanillaRegionPos, State<VanillaRegionPos>> newStates = new HashMap<>();
             for (VanillaRegionPos regionPos : regionPositions) {
                 newStates.put(regionPos, externalStateForRegion(regionPos));
             }
             return newStates;
         } else {
             // snapshot must check against current state to warn user
-            Map<VanillaRegionPos, State<VanillaRegionPos>> newStates = new HashMap<>();
 
             boolean anyDiffer = false;
             for (VanillaRegionPos regionPos : regionPositions) {
@@ -247,19 +245,19 @@ public class VanillaStateTracker {
         return deletionFuture;
     }
 
-    public CompletableFuture<Void> undo() {
+    public CompletableFuture<Boolean> undo() {
         if (this.currentStateIdx <= 0) {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(false);
         }
 
         if (!worldLock.tryLock())
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(false);
 
         currentStateIdx--; // we decrement first so that if there are errors the user can cancel and redo
         Map<VanillaRegionPos, State<VanillaRegionPos>> previousState = this.states.get(currentStateIdx);
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
-        CompletableFuture<Void> undoFuture = CompletableFuture.runAsync(() -> {
+        CompletableFuture<Boolean> undoFuture = CompletableFuture.supplyAsync(() -> {
             previousState.forEach((regionPos, state) -> {
                 try {
                     //TODO: only write to regions modified since the snapshot was taken
@@ -269,9 +267,13 @@ public class VanillaStateTracker {
                     throw new RuntimeException(e);
                 }
             });
+            return true;
         });
 
-        undoFuture.whenCompleteAsync((v, throwable) -> {
+        undoFuture.whenCompleteAsync((success, throwable) -> {
+            if (!success) {
+                return;
+            }
             writtenRegions.forEach(regionPos -> {
                 Region region = world.getRegion(ChunkPosition.get(regionPos.x, regionPos.z));
                 region.parse(0, 0);
