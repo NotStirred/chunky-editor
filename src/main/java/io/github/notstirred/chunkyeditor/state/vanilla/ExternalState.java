@@ -54,6 +54,11 @@ public class ExternalState implements State<VanillaRegionPos> {
     }
 
     @Override
+    public int size() {
+        return this.state.length;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;

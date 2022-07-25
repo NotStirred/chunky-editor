@@ -48,4 +48,9 @@ public class InternalState implements State<VanillaRegionPos> {
                     external.state, 0, HEADER_SIZE_BYTES);
         }
     }
+
+    @Override
+    public int size() {
+        return this.state.length;
+    }
 }

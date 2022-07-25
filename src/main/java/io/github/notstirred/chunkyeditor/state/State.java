@@ -11,4 +11,6 @@ public interface State<T> {
     boolean headerMatches(State<T> other);
 
     boolean isInternal();
+
+    int size();
 }

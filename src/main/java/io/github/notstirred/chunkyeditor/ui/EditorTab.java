@@ -1,6 +1,7 @@
 package io.github.notstirred.chunkyeditor.ui;
 
 import io.github.notstirred.chunkyeditor.Editor;
+import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
 import io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
@@ -17,12 +18,7 @@ import se.llbit.chunky.world.ChunkPosition;
 import se.llbit.fxutil.Dialogs;
 import se.llbit.log.Log;
 
-import java.io.EOFException;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 public class EditorTab implements RenderControlsTab {
@@ -100,7 +96,23 @@ public class EditorTab implements RenderControlsTab {
             if (worldState == null) // user said no to confirmation
                 return;
 
-            worldState.getStateTracker().removeAllStates();
+            VanillaStateTracker stateTracker = worldState.getStateTracker();
+
+            if (!stateTracker.hasState()) // no active state
+                return;
+
+            int stateCount = stateTracker.stateCount();
+            Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
+                    "Confirm state clear",
+                    String.format("Do you want to clear %d undo states?", stateCount),
+                    String.format("This will save approximately %dMiB.\nYou won't be able to get the previous undo states back!", (int) (stateTracker.statesSizeBytes() / 1024 / 1024)),
+                    String.format("I do want to clear %d undo states", stateCount));
+
+            if (confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                return;
+            }
+
+            stateTracker.removeAllStates();
         });
         advancedOptionsGrid.add(clearUndoStates, 0, 0);
 

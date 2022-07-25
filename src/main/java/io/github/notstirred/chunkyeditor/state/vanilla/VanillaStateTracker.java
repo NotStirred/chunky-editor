@@ -158,6 +158,10 @@ public class VanillaStateTracker {
         return true;
     }
 
+    public boolean hasState() {
+        return this.currentStateIdx != NO_STATE;
+    }
+
     public boolean hasPreviousState() {
         return this.currentStateIdx > 0;
     }
@@ -196,12 +200,24 @@ public class VanillaStateTracker {
         }
     }
 
+    public int stateCount() {
+        return this.states.size();
+    }
+
     /**
      * Remove all header backups stored
      */
     public void removeAllStates() {
         this.states.clear();
         this.currentStateIdx = NO_STATE;
+    }
+
+    public long statesSizeBytes() {
+        long[] bytes = new long[] { 0 }; //java is annoying
+        for (Map<VanillaRegionPos, State<VanillaRegionPos>> states : this.states) {
+            states.forEach((regionPos, state) -> bytes[0] += state.size());
+        }
+        return bytes[0];
     }
 
     private static class StateGroup {
