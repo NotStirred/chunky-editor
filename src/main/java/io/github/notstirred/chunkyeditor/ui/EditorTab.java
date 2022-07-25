@@ -1,8 +1,7 @@
 package io.github.notstirred.chunkyeditor.ui;
 
 import io.github.notstirred.chunkyeditor.Editor;
-import io.github.notstirred.chunkyeditor.VanillaRegionPos;
-import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
+import io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -41,9 +40,9 @@ public class EditorTab implements RenderControlsTab {
         Button deleteSelectedChunks = new Button("Delete Selected Chunks");
         deleteSelectedChunks.setOnMouseClicked(event -> {
             try {
-                VanillaStateTracker stateTracker = editor.getStateTracker();
+                VanillaWorldState worldState = editor.getWorldState();
 
-                if (stateTracker == null) // user said no to confirmation
+                if (worldState == null) // user said no to confirmation
                     return;
 
                 Collection<ChunkPosition> chunkSelection = this.chunkyFxController.getChunkSelection().getSelection();
@@ -54,44 +53,12 @@ public class EditorTab implements RenderControlsTab {
                         "These chunks will be removed from your actual minecraft world\nIf the world is open in minecraft, chunky WILL break your world.\nBe sure to have a backup!",
                         String.format("I do want to delete %d chunks", chunkSelection.size())
                 );
-                if(confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                if(confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK)
                     return;
-                }
 
-                Map<VanillaRegionPos, List<ChunkPosition>> regionSelection = new HashMap<>();
-                for (ChunkPosition chunkPosition : chunkSelection) {
-                    ChunkPosition asRegionPos = chunkPosition.regionPosition();
-
-                    regionSelection.computeIfAbsent(new VanillaRegionPos(asRegionPos.x, asRegionPos.z), pos -> new ArrayList<>())
-                            .add(chunkPosition);
-                }
-                List<VanillaRegionPos> regions = new ArrayList<>(regionSelection.keySet());
-
-                try {
-                    // we first overwrite the current snapshot, ready to be undone
-                    stateTracker.snapshotCurrentState(regions);
-                } catch (FileNotFoundException e) {
-                    Log.info("Could not find region file, ignoring this file and continuing", e);
-                } catch (EOFException e) {
-                    Log.info("Invalid region file header, ignoring this file and continuing", e);
-                } catch (IOException e) {
-                    Log.warn("Could not take snapshot of regions, aborting.", e);
-                    return; // We haven't started yet, so can safely cancel
-                }
-
-                // do chunk deletion
-                var deletionFuture = stateTracker.deleteChunks(this.editor::submitTask, regionSelection);
-                deletionFuture = deletionFuture.whenCompleteAsync((result, throwable) -> {
-                    // take snapshot of new state to warn user if anything changed when they press undo
-                    try {
-                        stateTracker.snapshotState(regions);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                });
                 try {
                     //TODO: don't immediately wait for the future
-                    deletionFuture.get();
+                    worldState.deleteChunks(this.editor::submitTask, chunkSelection).get();
                 } catch (ExecutionException e) {
                     Log.warn("Deletion completed exceptionally", e);
                 } catch (InterruptedException e) {
@@ -101,18 +68,16 @@ public class EditorTab implements RenderControlsTab {
                 t.printStackTrace();
             }
         });
+
         Button undoPreviousAction = new Button("Undo");
         undoPreviousAction.setOnMouseClicked(event -> {
-            VanillaStateTracker stateTracker = editor.getStateTracker();
+            VanillaWorldState worldState = editor.getWorldState();
 
-            if (stateTracker == null) { // user said no to confirmation
+            if (worldState == null) // user said no to confirmation
                 return;
-            }
-
-            CompletableFuture<Boolean> undoFuture = stateTracker.undo();
 
             try {
-                Boolean b = undoFuture.get();
+                Boolean b = worldState.undo().get();
             } catch (ExecutionException e) {
                 Log.warn("Deletion completed exceptionally", e);
             } catch (InterruptedException e) {
@@ -130,13 +95,12 @@ public class EditorTab implements RenderControlsTab {
 
         Button clearUndoStates = new Button("Clear Undo States");
         clearUndoStates.setOnMouseClicked(event -> {
-            VanillaStateTracker stateTracker = editor.getStateTracker();
+            VanillaWorldState worldState = editor.getWorldState();
 
-            if (stateTracker == null) { // user said no to confirmation
+            if (worldState == null) // user said no to confirmation
                 return;
-            }
 
-            stateTracker.removeAllStates();
+            worldState.getStateTracker().removeAllStates();
         });
         advancedOptionsGrid.add(clearUndoStates, 0, 0);
 

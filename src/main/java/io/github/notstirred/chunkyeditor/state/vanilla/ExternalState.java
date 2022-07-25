@@ -5,10 +5,11 @@ import io.github.notstirred.chunkyeditor.state.State;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Objects;
+
+import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
 
 /**
  * Externally modified region state, such as minecraft writing to the region file
@@ -43,12 +44,12 @@ public class ExternalState implements State<VanillaRegionPos> {
     public boolean headerMatches(State<VanillaRegionPos> other) {
         if (other.isInternal()) {
             InternalState internal = (InternalState) other;
-            return Arrays.equals(this.state, 0, VanillaStateTracker.HEADER_SIZE_BYTES,
-                    internal.state, 0, VanillaStateTracker.HEADER_SIZE_BYTES);
+            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
+                    internal.state, 0, HEADER_SIZE_BYTES);
         } else {
             ExternalState external = (ExternalState) other;
-            return Arrays.equals(this.state, 0, VanillaStateTracker.HEADER_SIZE_BYTES,
-                    external.state, 0, VanillaStateTracker.HEADER_SIZE_BYTES);
+            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
+                    external.state, 0, HEADER_SIZE_BYTES);
         }
     }
 
@@ -68,8 +69,8 @@ public class ExternalState implements State<VanillaRegionPos> {
             return false;
         }
         ExternalState external = ((ExternalState) other);
-        return Arrays.equals(this.state, VanillaStateTracker.HEADER_SIZE_BYTES, this.state.length,
-                external.state, VanillaStateTracker.HEADER_SIZE_BYTES, external.state.length);
+        return Arrays.equals(this.state, HEADER_SIZE_BYTES, this.state.length,
+                external.state, HEADER_SIZE_BYTES, external.state.length);
     }
 }
 

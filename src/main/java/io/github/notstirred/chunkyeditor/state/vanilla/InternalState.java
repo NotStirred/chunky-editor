@@ -8,6 +8,8 @@ import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.util.Arrays;
 
+import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
+
 public class InternalState implements State<VanillaRegionPos> {
     private final VanillaRegionPos pos;
     /** The entire header for this state */
@@ -42,8 +44,8 @@ public class InternalState implements State<VanillaRegionPos> {
             return Arrays.equals(this.state, internal.state);
         } else {
             ExternalState external = (ExternalState) other;
-            return Arrays.equals(this.state, 0, VanillaStateTracker.HEADER_SIZE_BYTES,
-                    external.state, 0, VanillaStateTracker.HEADER_SIZE_BYTES);
+            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
+                    external.state, 0, HEADER_SIZE_BYTES);
         }
     }
 }

@@ -1,8 +1,8 @@
 package io.github.notstirred.chunkyeditor;
 
 import io.github.notstirred.chunkyeditor.minecraft.WorldLock;
-import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
 import io.github.notstirred.chunkyeditor.ui.EditorTab;
+import io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState;
 import se.llbit.chunky.Plugin;
 import se.llbit.chunky.main.Chunky;
 import se.llbit.chunky.main.ChunkyOptions;
@@ -27,7 +27,7 @@ public class Editor implements Plugin {
             TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(1));
 
     @Nullable
-    private VanillaStateTracker stateTracker = null;
+    private VanillaWorldState worldState = null;
 
     @Nullable
     private WorldMapLoader mapLoader;
@@ -67,18 +67,18 @@ public class Editor implements Plugin {
      */
     public void worldLoaded(World world, Boolean isSameWorld) {
         if(!isSameWorld) {
-            this.stateTracker = null;
+            this.worldState = null;
         }
     }
 
     /**
-     * Create a state tracker for the specified world
+     * Create a world state for the specified world
      * Will ask the user for confirmation if the world has been accessed recently
      *
-     * @return The state tracker for the world, or null if the user cancelled, or null if error
+     * @return The world state for the world, or null if the user cancelled, or null if error
      */
     @Nullable
-    private static VanillaStateTracker createStateTracker(@NotNull World world) {
+    private static VanillaWorldState createWorldState(@NotNull World world) {
         try {
             File worldDirectory = world.getWorldDirectory();
             if (worldDirectory == null) {
@@ -87,7 +87,7 @@ public class Editor implements Plugin {
 
             WorldLock worldLock = WorldLock.of(worldDirectory.toPath());
             if (worldLock.tryLock()) {
-                return new VanillaStateTracker(world, worldLock);
+                return new VanillaWorldState(world, worldLock);
             } else {
                 return null;
             }
@@ -98,13 +98,13 @@ public class Editor implements Plugin {
     }
 
     @Nullable
-    public VanillaStateTracker getStateTracker() {
-        if (this.mapLoader != null && stateTracker == null) {
+    public VanillaWorldState getWorldState() {
+        if (this.mapLoader != null && this.worldState == null) {
             World world = this.mapLoader.getWorld();
-            this.stateTracker = createStateTracker(world);
+            this.worldState = createWorldState(world);
         }
 
-        return stateTracker;
+        return this.worldState;
     }
 
     public void setMapLoader(@NotNull WorldMapLoader mapLoader) {
