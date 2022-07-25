@@ -59,8 +59,8 @@ public class WorldLock {
     private boolean getUserConfirmation() {
         Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
                 "World may be open in Minecraft",
-                "It looks like your world might be open in minecraft",
-                "Do you really want to allow chunky to modify your world?\nIf the world is open in minecraft, chunky WILL break your world.\nBe sure to have a backup!",
+                "It looks like your world might be open in Minecraft",
+                "Do you really want to allow Chunky to modify your world?\nIf the world is open in Minecraft, Chunky WILL break your world.\nBe sure to have a backup!",
                 "I DO NOT have this world open in Minecraft"
         );
 

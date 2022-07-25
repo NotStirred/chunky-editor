@@ -44,7 +44,7 @@ public class EditorTab implements RenderControlsTab {
                 Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
                         "Confirm chunk deletion",
                         String.format("Do you want to delete %d chunks?", chunkSelection.size()),
-                        "These chunks will be removed from your actual minecraft world\nIf the world is open in minecraft, chunky WILL break your world.\nBe sure to have a backup!",
+                        "These chunks will be removed from your actual Minecraft world\nIf the world is open in Minecraft, Chunky WILL break your world.\nBe sure to have a backup!",
                         String.format("I do want to delete %d chunks", chunkSelection.size())
                 );
                 if(confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK)
