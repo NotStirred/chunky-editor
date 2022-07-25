@@ -5,10 +5,7 @@ import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
 import io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.TitledPane;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.ui.controller.ChunkyFxController;
@@ -34,6 +31,7 @@ public class EditorTab implements RenderControlsTab {
         box.setPadding(new Insets(10.0));
 
         Button deleteSelectedChunks = new Button("Delete Selected Chunks");
+        deleteSelectedChunks.setTooltip(new Tooltip("Deletes the selected chunks (shocking, I know)"));
         deleteSelectedChunks.setOnMouseClicked(event -> {
             try {
                 VanillaWorldState worldState = editor.getWorldState();
@@ -66,6 +64,7 @@ public class EditorTab implements RenderControlsTab {
         });
 
         Button undoPreviousAction = new Button("Undo");
+        undoPreviousAction.setTooltip(new Tooltip("Undoes the last delete"));
         undoPreviousAction.setOnMouseClicked(event -> {
             VanillaWorldState worldState = editor.getWorldState();
 
@@ -75,7 +74,7 @@ public class EditorTab implements RenderControlsTab {
             try {
                 Boolean b = worldState.undo().get();
             } catch (ExecutionException e) {
-                Log.warn("Deletion completed exceptionally", e);
+                Log.warn("Undo completed exceptionally", e);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -90,6 +89,7 @@ public class EditorTab implements RenderControlsTab {
         advancedOptionsGrid.setHgap(6);
 
         Button clearUndoStates = new Button("Clear Undo States");
+        clearUndoStates.setTooltip(new Tooltip("Clears the deletion undo states, and saves some memory"));
         clearUndoStates.setOnMouseClicked(event -> {
             VanillaWorldState worldState = editor.getWorldState();
 
