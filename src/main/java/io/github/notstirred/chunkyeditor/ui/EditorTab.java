@@ -3,6 +3,7 @@ package io.github.notstirred.chunkyeditor.ui;
 import io.github.notstirred.chunkyeditor.Editor;
 import io.github.notstirred.chunkyeditor.state.vanilla.VanillaStateTracker;
 import io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -16,6 +17,7 @@ import se.llbit.fxutil.Dialogs;
 import se.llbit.log.Log;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 public class EditorTab implements RenderControlsTab {
@@ -24,13 +26,19 @@ public class EditorTab implements RenderControlsTab {
 
     private ChunkyFxController chunkyFxController;
 
+    private Button deleteSelectedChunks;
+    private Button undoPreviousAction;
+    private Button clearUndoStates = null;
+
+    private static final String CLEAR_UNDO_STATES_TEXT = "Clear Undo States";
+
     public EditorTab(Editor editor) {
         this.editor = editor;
 
         box = new VBox(10.0);
         box.setPadding(new Insets(10.0));
 
-        Button deleteSelectedChunks = new Button("Delete Selected Chunks");
+        deleteSelectedChunks = new Button("Delete Selected Chunks");
         deleteSelectedChunks.setTooltip(new Tooltip("Deletes the selected chunks (shocking, I know)"));
         deleteSelectedChunks.setOnMouseClicked(event -> {
             try {
@@ -38,6 +46,8 @@ public class EditorTab implements RenderControlsTab {
 
                 if (worldState == null) // user said no to confirmation
                     return;
+
+                VanillaStateTracker stateTracker = worldState.getStateTracker();
 
                 Collection<ChunkPosition> chunkSelection = this.chunkyFxController.getChunkSelection().getSelection();
 
@@ -51,8 +61,15 @@ public class EditorTab implements RenderControlsTab {
                     return;
 
                 try {
+                    CompletableFuture<Boolean> deletionFuture = worldState.deleteChunks(this.editor::submitTask, chunkSelection);
+                    // set memory usage info on clear states button
+                    deletionFuture.whenCompleteAsync((result, throwable) -> {
+                        clearUndoStates.setText(String.format("%s (%dMiB)", CLEAR_UNDO_STATES_TEXT, (int) (stateTracker.statesSizeBytes() / 1024 / 1024)));
+                    }, Platform::runLater);
+
                     //TODO: don't immediately wait for the future
-                    worldState.deleteChunks(this.editor::submitTask, chunkSelection).get();
+                    deletionFuture.get();
+
                 } catch (ExecutionException e) {
                     Log.warn("Deletion completed exceptionally", e);
                 } catch (InterruptedException e) {
@@ -63,7 +80,7 @@ public class EditorTab implements RenderControlsTab {
             }
         });
 
-        Button undoPreviousAction = new Button("Undo");
+        undoPreviousAction = new Button("Undo");
         undoPreviousAction.setTooltip(new Tooltip("Undoes the last delete"));
         undoPreviousAction.setOnMouseClicked(event -> {
             VanillaWorldState worldState = editor.getWorldState();
@@ -88,7 +105,7 @@ public class EditorTab implements RenderControlsTab {
         GridPane advancedOptionsGrid = new GridPane();
         advancedOptionsGrid.setHgap(6);
 
-        Button clearUndoStates = new Button("Clear Undo States");
+        clearUndoStates = new Button(CLEAR_UNDO_STATES_TEXT);
         clearUndoStates.setTooltip(new Tooltip("Clears the deletion undo states, and saves some memory"));
         clearUndoStates.setOnMouseClicked(event -> {
             VanillaWorldState worldState = editor.getWorldState();
@@ -112,6 +129,7 @@ public class EditorTab implements RenderControlsTab {
                 return;
             }
 
+            clearUndoStates.setText(CLEAR_UNDO_STATES_TEXT);
             stateTracker.removeAllStates();
         });
         advancedOptionsGrid.add(clearUndoStates, 0, 0);
