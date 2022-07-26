@@ -1,6 +1,7 @@
 package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.Accessor;
+import io.github.notstirred.chunkyeditor.Editor;
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.minecraft.WorldLock;
 import javafx.application.Platform;
@@ -148,17 +149,8 @@ public class VanillaWorldState {
             if (!success) {
                 return;
             }
-            writtenRegions.forEach(regionPos -> {
-                Region region = world.getRegion(ChunkPosition.get(regionPos.x, regionPos.z));
-                region.parse(0, 0);
-                for (int x = 0; x < 32; x++) {
-                    for (int z = 0; z < 32; z++) {
-                        ChunkPosition chunkPos = ChunkPosition.get(x, z);
-                        world.chunkUpdated(chunkPos);
-                        // TODO: should I MCRegion#setChunk here to make refreshing the map view faster?
-                    }
-                }
-            });
+            writtenRegions.forEach(regionPos ->
+                    Editor.INSTANCE.mapLoader().regionUpdated(ChunkPosition.get(regionPos.x, regionPos.z)));
         }, Platform::runLater);
         return undoFuture;
     }

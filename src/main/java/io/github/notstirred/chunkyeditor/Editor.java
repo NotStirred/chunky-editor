@@ -20,17 +20,25 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class Editor implements Plugin {
+    public static Editor INSTANCE;
+
     private final Executor editorExecutor = new ThreadPoolExecutor(1, 1, 0L,
             TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(1));
 
-    @Nullable
-    private VanillaWorldState worldState = null;
+    @Nullable private VanillaWorldState worldState = null;
 
-    @Nullable
-    private WorldMapLoader mapLoader;
+    @Nullable private WorldMapLoader mapLoader;
+
+    public Editor() {
+        if (Editor.INSTANCE != null) {
+            throw new IllegalStateException("Created two instances of the Editor plugin?!");
+        }
+        Editor.INSTANCE = this;
+    }
 
     @Override public void attach(Chunky chunky) {
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -116,5 +124,9 @@ public class Editor implements Plugin {
     }
     public Future<Void> submitTask(Runnable runnable) {
         return CompletableFuture.runAsync(runnable, this.editorExecutor);
+    }
+
+    public WorldMapLoader mapLoader() {
+        return this.mapLoader;
     }
 }
