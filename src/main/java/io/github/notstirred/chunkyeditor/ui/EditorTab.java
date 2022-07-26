@@ -13,6 +13,7 @@ import se.llbit.chunky.ui.controller.ChunkyFxController;
 import se.llbit.chunky.ui.controller.RenderControlsFxController;
 import se.llbit.chunky.ui.render.RenderControlsTab;
 import se.llbit.chunky.world.ChunkPosition;
+import se.llbit.chunky.world.World;
 import se.llbit.fxutil.Dialogs;
 import se.llbit.log.Log;
 
@@ -146,6 +147,7 @@ public class EditorTab implements RenderControlsTab {
     public void setController(RenderControlsFxController controller) {
         this.chunkyFxController = controller.getChunkyController();
         this.chunkyFxController.getMapLoader().addWorldLoadListener(this.editor::worldLoaded);
+        this.chunkyFxController.getMapLoader().addWorldLoadListener(this::worldLoaded);
         this.editor.setMapLoader(this.chunkyFxController.getMapLoader());
     }
 
@@ -162,6 +164,12 @@ public class EditorTab implements RenderControlsTab {
     @Override
     public Node getTabContent() {
         return box;
+    }
+
+    private void worldLoaded(World world, Boolean isSameWorld) {
+        if (!isSameWorld) {
+            this.clearUndoStates.setText(CLEAR_UNDO_STATES_TEXT);
+        }
     }
 }
 
