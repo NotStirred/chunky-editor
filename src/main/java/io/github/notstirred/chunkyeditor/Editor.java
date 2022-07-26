@@ -94,7 +94,7 @@ public class Editor implements Plugin {
             }
 
             WorldLock worldLock = WorldLock.of(worldDirectory.toPath());
-            if (worldLock.tryLock()) {
+            if (worldLock.tryLockNormal()) {
                 return new VanillaWorldState(world, worldLock);
             } else {
                 return null;
