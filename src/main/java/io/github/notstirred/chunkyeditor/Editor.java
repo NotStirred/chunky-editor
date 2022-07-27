@@ -3,6 +3,8 @@ package io.github.notstirred.chunkyeditor;
 import io.github.notstirred.chunkyeditor.minecraft.WorldLock;
 import io.github.notstirred.chunkyeditor.ui.EditorTab;
 import io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState;
+import io.github.notstirred.chunkyeditor.ui.util.ConfirmationDialogue;
+import javafx.scene.control.*;
 import se.llbit.chunky.Plugin;
 import se.llbit.chunky.main.Chunky;
 import se.llbit.chunky.main.ChunkyOptions;
@@ -11,6 +13,7 @@ import se.llbit.chunky.ui.ChunkyFx;
 import se.llbit.chunky.ui.render.RenderControlsTab;
 import se.llbit.chunky.ui.render.RenderControlsTabTransformer;
 import se.llbit.chunky.world.World;
+import se.llbit.fxutil.Dialogs;
 import se.llbit.log.Log;
 import se.llbit.util.annotation.NotNull;
 import se.llbit.util.annotation.Nullable;
@@ -20,7 +23,6 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class Editor implements Plugin {
@@ -93,8 +95,13 @@ public class Editor implements Plugin {
                 return null;
             }
 
-            WorldLock worldLock = WorldLock.of(worldDirectory.toPath());
-            if (worldLock.tryLockNormal()) {
+            WorldLock worldLock = WorldLock.of(worldDirectory.toPath(), (isFirstConfirm) -> {
+               if (isFirstConfirm) {
+                   return Editor.getUserConfirmation();
+               }
+               return Editor.getScaryUserConfirmation();
+            });
+            if (worldLock.tryLock()) {
                 return new VanillaWorldState(world, worldLock);
             } else {
                 return null;
@@ -115,6 +122,11 @@ public class Editor implements Plugin {
         return this.worldState;
     }
 
+    @Nullable
+    public VanillaWorldState getWorldStateUnsafe() {
+        return this.worldState;
+    }
+
     public void setMapLoader(@NotNull WorldMapLoader mapLoader) {
         this.mapLoader = mapLoader;
     }
@@ -128,5 +140,36 @@ public class Editor implements Plugin {
 
     public WorldMapLoader mapLoader() {
         return this.mapLoader;
+    }
+
+    private static boolean getUserConfirmation() {
+        Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
+                "World may be open in Minecraft",
+                "It looks like your world might be open in Minecraft",
+                "Do you really want to allow Chunky to modify your world?\nIf the world is open in Minecraft, Chunky WILL break your world.\nBe sure to have a backup!",
+                "I DO NOT have this world open in Minecraft"
+        );
+
+        return confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
+    }
+
+    private static boolean getScaryUserConfirmation() {
+        Dialog<ButtonType> confirmationDialog = new ConfirmationDialogue(
+                "World may be open in Minecraft",
+                "It REALLY looks like your world might be open in Minecraft",
+                "If the world is open in Minecraft, Chunky WILL break your world.\nIf you ignore this MAKE A BACKUP ANYWAY",
+                "I AM 100% SURE I DO NOT HAVE THIS WORLD OPEN IN MINECRAFT",
+                "Continue and DONT Clear Undo Backups",
+                "Continue and Clear Undo Backups"
+        );
+
+        ButtonType buttonType = confirmationDialog.showAndWait().orElse(ButtonType.CANCEL);
+        if (ButtonType.YES.equals(buttonType)) {
+            VanillaWorldState worldStateUnsafe = Editor.INSTANCE.getWorldStateUnsafe();
+            assert worldStateUnsafe != null;
+            worldStateUnsafe.getStateTracker().removeAllStates();
+            return true;
+        }
+        return ButtonType.NO.equals(buttonType);
     }
 }

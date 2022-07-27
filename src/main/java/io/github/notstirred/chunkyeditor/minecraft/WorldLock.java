@@ -1,8 +1,5 @@
 package io.github.notstirred.chunkyeditor.minecraft;
 
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Dialog;
-import se.llbit.fxutil.Dialogs;
 import se.llbit.util.annotation.NotNull;
 import se.llbit.util.annotation.Nullable;
 
@@ -12,6 +9,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.function.Function;
 
 public class WorldLock {
     @NotNull
@@ -23,8 +21,12 @@ public class WorldLock {
     @Nullable
     private ZonedDateTime validTime = null;
 
-    private WorldLock(@NotNull File lockFile) {
+    private final Function<Boolean, Boolean> confirmFunction;
+    private boolean isFirstConfirm = true;
+
+    private WorldLock(@NotNull File lockFile, Function<Boolean, Boolean> userConfirmationFunction) {
         this.lockFile = lockFile;
+        this.confirmFunction = userConfirmationFunction;
     }
 
     private boolean isValid() {
@@ -42,64 +44,20 @@ public class WorldLock {
      *
      * @return True if locked, false if not.
      */
-    public boolean tryLockNormal() {
-        if (isValid()) {
-            return true;
-        }
-
-        if (!getUserConfirmation()) {
-            return false;
-        }
-
-        this.validTime = ZonedDateTime.now();
-
-        return true;
-    }
-
-
-    /**
-     * Check if the file is untouched, ask the user for confirmation if it has been modified (world has been opened externally)
-     *
-     * @return True if locked, false if not.
-     */
     public boolean tryLock() {
         if (isValid()) {
             return true;
         }
 
-        if (!getBigUserConfirmation()) {
+        boolean isFirstConfirm = this.isFirstConfirm;
+        this.isFirstConfirm = false;
+        if (!this.confirmFunction.apply(isFirstConfirm)) {
             return false;
         }
 
         this.validTime = ZonedDateTime.now();
 
         return true;
-    }
-
-    private boolean getUserConfirmation() {
-        Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
-                "World may be open in Minecraft",
-                "It looks like your world might be open in Minecraft",
-                "Do you really want to allow Chunky to modify your world?\nIf the world is open in Minecraft, Chunky WILL break your world.\nBe sure to have a backup!",
-                "I DO NOT have this world open in Minecraft"
-        );
-
-        return confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
-    }
-
-    /**
-     * Same as {@link WorldLock#getUserConfirmation()} but BIGGER warning
-     * @return
-     */
-    private boolean getBigUserConfirmation() {
-        Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
-                "World may be open in Minecraft",
-                "It REALLY looks like your world might be open in Minecraft",
-                "If the world is open in Minecraft, Chunky WILL break your world.\nIf you ignore this MAKE A BACKUP ANYWAY",
-                "I AM 100% SURE I DO NOT HAVE THIS WORLD OPEN IN MINECRAFT"
-        );
-
-        return confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
     }
 
     @NotNull
@@ -115,7 +73,7 @@ public class WorldLock {
         );
     }
 
-    public static WorldLock of(@NotNull Path worldPath) throws FileNotFoundException {
+    public static WorldLock of(@NotNull Path worldPath, Function<Boolean, Boolean> userConfirmationFunction) throws FileNotFoundException {
         Path sessionLockFile = worldPath.resolve("session.lock");
 
         File lockFile = sessionLockFile.toFile();
@@ -123,7 +81,6 @@ public class WorldLock {
             throw new FileNotFoundException();
         }
 
-//        long lastModified = new File("/home/tom/Downloads/MultiMC/bin/instances/1.12.2/.minecraft/saves/New World/session.lock").lastModified();
-        return new WorldLock(lockFile);
+        return new WorldLock(lockFile, userConfirmationFunction);
     }
 }
