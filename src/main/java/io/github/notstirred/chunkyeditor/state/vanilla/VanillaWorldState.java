@@ -138,13 +138,19 @@ public class VanillaWorldState {
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
         CompletableFuture<Boolean> undoFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                this.stateTracker.snapshotCurrentState();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+
             this.stateTracker.previousState().forEach((regionPos, state) -> {
                 try {
                     //TODO: only write to regions modified since the snapshot was taken
                     state.writeState(this.regionDirectory);
                     writtenRegions.add(state.position());
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    throw new UncheckedIOException(e);
                 }
             });
             return true;
