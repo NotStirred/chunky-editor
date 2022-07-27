@@ -47,8 +47,13 @@ public class VanillaWorldState {
         List<VanillaRegionPos> regions = new ArrayList<>(regionSelection.keySet());
 
         try {
-            // we first overwrite the current snapshot, ready to be undone
-            stateTracker.snapshotCurrentState(regions);
+            // we first overwrite the current snapshot if it exists, ready to be undone
+            if (stateTracker.hasState()) {
+                stateTracker.snapshotCurrentState();
+            } else {
+                // otherwise we just take a normal snapshot instead
+                stateTracker.snapshotState(regions);
+            }
         } catch (FileNotFoundException e) {
             Log.info("Could not find region file, ignoring this file and continuing", e);
         } catch (EOFException e) {

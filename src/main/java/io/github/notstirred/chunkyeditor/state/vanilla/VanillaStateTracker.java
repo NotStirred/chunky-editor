@@ -80,7 +80,7 @@ public class VanillaStateTracker {
      * @return Null if no changes since the current snapshot
      */
     @Nullable
-    private Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot(List<VanillaRegionPos> regionPositions) throws IOException {
+    private Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot(Collection<VanillaRegionPos> regionPositions) throws IOException {
         Map<VanillaRegionPos, State<VanillaRegionPos>> newStates = new HashMap<>();
         if (this.currentStateIdx == NO_STATE) {
             // snapshot can go ahead with no checks
@@ -126,10 +126,14 @@ public class VanillaStateTracker {
      * Retake the current snapshot
      * @return True if a snapshot was taken (the current state differed from the new state)
      */
-    public boolean snapshotCurrentState(List<VanillaRegionPos> regionPositions) throws IOException {
+    public boolean snapshotCurrentState() throws IOException {
         removeFutureStates();
 
-        Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot = snapshot(regionPositions);
+        if (this.currentStateIdx == NO_STATE) {
+            return false;
+        }
+
+        Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot = snapshot(this.states.get(this.currentStateIdx).keySet());
 
         if(snapshot == null) {
             return false;
