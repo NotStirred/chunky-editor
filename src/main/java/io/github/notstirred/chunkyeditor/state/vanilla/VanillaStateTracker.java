@@ -20,7 +20,7 @@ public class VanillaStateTracker {
 
     private final Path regionDirectory;
 
-    private final List<Map<VanillaRegionPos, State<VanillaRegionPos>>> states = new ArrayList<>();
+    private final List<StateGroup> states = new ArrayList<>();
     private int currentStateIdx = NO_STATE;
 
     public VanillaStateTracker(Path regionDirectory) {
@@ -49,9 +49,8 @@ public class VanillaStateTracker {
      */
     @Nullable
     private ExternalState findPreviousExternalForRegion(VanillaRegionPos regionPos) {
-        List<Map<VanillaRegionPos, State<VanillaRegionPos>>> states = this.states;
         for (int i = currentStateIdx; i >= 0; i--) {
-            State<VanillaRegionPos> state = states.get(i).get(regionPos);
+            State<VanillaRegionPos> state = this.states.get(i).get(regionPos);
             if (state != null) {
                 if (!state.isInternal()) {
                     return (ExternalState) state;
@@ -66,9 +65,8 @@ public class VanillaStateTracker {
      */
     @Nullable
     private State<VanillaRegionPos> findPreviousForRegion(VanillaRegionPos regionPos) {
-        List<Map<VanillaRegionPos, State<VanillaRegionPos>>> states = this.states;
         for (int i = currentStateIdx; i >= 0; i--) {
-            State<VanillaRegionPos> state = states.get(i).get(regionPos);
+            State<VanillaRegionPos> state = this.states.get(i).get(regionPos);
             if (state != null) {
                 return state;
             }
@@ -80,8 +78,8 @@ public class VanillaStateTracker {
      * @return Null if no changes since the current snapshot
      */
     @Nullable
-    private Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot(Collection<VanillaRegionPos> regionPositions) throws IOException {
-        Map<VanillaRegionPos, State<VanillaRegionPos>> newStates = new HashMap<>();
+    private StateGroup snapshot(Collection<VanillaRegionPos> regionPositions) throws IOException {
+        StateGroup newStates = new StateGroup();
         if (this.currentStateIdx == NO_STATE) {
             // snapshot can go ahead with no checks
             for (VanillaRegionPos regionPos : regionPositions) {
@@ -133,7 +131,7 @@ public class VanillaStateTracker {
             return false;
         }
 
-        Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot = snapshot(this.states.get(this.currentStateIdx).keySet());
+        StateGroup snapshot = snapshot(this.states.get(this.currentStateIdx).getStates().keySet());
 
         if(snapshot == null) {
             return false;
@@ -153,7 +151,7 @@ public class VanillaStateTracker {
      */
     public boolean snapshotState(List<VanillaRegionPos> regionPositions) throws IOException {
         this.removeFutureStates();
-        Map<VanillaRegionPos, State<VanillaRegionPos>> snapshot = snapshot(regionPositions);
+        StateGroup snapshot = snapshot(regionPositions);
         if (snapshot == null) {
             return false;
         }
@@ -166,11 +164,20 @@ public class VanillaStateTracker {
         return this.currentStateIdx != NO_STATE;
     }
 
+
+    public StateGroup currentState() {
+        if (this.currentStateIdx == NO_STATE) {
+            throw new IllegalStateException("Tried to get current state when none exists");
+        }
+
+        return this.states.get(currentStateIdx);
+    }
+
     public boolean hasPreviousState() {
         return this.currentStateIdx > 0;
     }
 
-    public Map<VanillaRegionPos, State<VanillaRegionPos>> previousState() {
+    public StateGroup previousState() {
         if (this.currentStateIdx == 0) {
             throw new ArrayIndexOutOfBoundsException("Tried to get previous state when none exists");
         }
@@ -183,7 +190,7 @@ public class VanillaStateTracker {
         return this.currentStateIdx + 1 < this.states.size();
     }
 
-    public Map<VanillaRegionPos, State<VanillaRegionPos>> nextState() {
+    public StateGroup nextState() {
         if (this.currentStateIdx + 1 >= this.states.size()) {
             throw new ArrayIndexOutOfBoundsException("Tried to get next state when none exists");
         }
@@ -218,25 +225,33 @@ public class VanillaStateTracker {
 
     public long statesSizeBytes() {
         long[] bytes = new long[] { 0 }; //java is annoying
-        for (Map<VanillaRegionPos, State<VanillaRegionPos>> states : this.states) {
-            states.forEach((regionPos, state) -> bytes[0] += state.size());
+        for (StateGroup stateGroups : this.states) {
+            stateGroups.getStates().forEach((regionPos, state) -> bytes[0] += state.size());
         }
         return bytes[0];
     }
 
-    private static class StateGroup {
-        Map<VanillaRegionPos, State<VanillaRegionPos>> state = new HashMap<>();
-        boolean hasExternal = false;
+    public static class StateGroup {
+        private Map<VanillaRegionPos, State<VanillaRegionPos>> states = new HashMap<>();
+        private boolean hasExternal = false;
 
-        void put(VanillaRegionPos pos, State<VanillaRegionPos> state) {
-            this.state.put(pos, state);
+        private void put(VanillaRegionPos pos, State<VanillaRegionPos> state) {
+            this.states.put(pos, state);
             if (!state.isInternal()) {
-                hasExternal = true;
+                this.hasExternal = true;
             }
         }
 
-        State<VanillaRegionPos> get(VanillaRegionPos pos) {
-            return this.state.get(pos);
+        public State<VanillaRegionPos> get(VanillaRegionPos pos) {
+            return this.states.get(pos);
+        }
+
+        public boolean hasExternal() {
+            return hasExternal;
+        }
+
+        public Map<VanillaRegionPos, State<VanillaRegionPos>> getStates() {
+            return Collections.unmodifiableMap(this.states);
         }
     }
 }
