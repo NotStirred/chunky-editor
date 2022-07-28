@@ -90,7 +90,7 @@ public class EditorTab implements RenderControlsTab {
                 return;
 
             try {
-                Boolean b = worldState.undo().get();
+                Boolean b = worldState.undo(this.editor::submitTask).get();
             } catch (ExecutionException e) {
                 Log.warn("Undo completed exceptionally", e);
             } catch (InterruptedException e) {

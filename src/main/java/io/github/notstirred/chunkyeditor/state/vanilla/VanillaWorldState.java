@@ -4,7 +4,9 @@ import io.github.notstirred.chunkyeditor.Accessor;
 import io.github.notstirred.chunkyeditor.Editor;
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.minecraft.WorldLock;
+import io.github.notstirred.chunkyeditor.ui.util.StyledSpecialApprovalConfirmationDialog;
 import javafx.application.Platform;
+import javafx.scene.control.ButtonType;
 import se.llbit.chunky.world.Chunk;
 import se.llbit.chunky.world.ChunkPosition;
 import se.llbit.chunky.world.EmptyChunk;
@@ -128,7 +130,7 @@ public class VanillaWorldState {
         return deletionFuture;
     }
 
-    public CompletableFuture<Boolean> undo() {
+    public CompletableFuture<Boolean> undo(Executor taskExecutor) {
         if(!this.stateTracker.hasPreviousState()) {
             return CompletableFuture.completedFuture(false);
         }
@@ -137,14 +139,28 @@ public class VanillaWorldState {
             return CompletableFuture.completedFuture(false);
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
-        CompletableFuture<Boolean> undoFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                this.stateTracker.snapshotCurrentState();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+        try {
+            this.stateTracker.snapshotCurrentState();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 
-            this.stateTracker.previousState().forEach((regionPos, state) -> {
+        if (this.stateTracker.currentState().hasExternal()) {
+            // Current state has external?! Minecraft likely wrote to it.
+            StyledSpecialApprovalConfirmationDialog dialog = new StyledSpecialApprovalConfirmationDialog(
+                    "World has been modified",
+                    "Continuing this undo is EXTREMELY likely to break your world",
+                    "The world has been modified externally, continuing this undo will overwrite any changes you made.\nIt is also likely to crash chunky, and could corrupt parts of your world\nIf you ignore this MAKE A BACKUP ANYWAY",
+                    "I understand that I might corrupt my world",
+                    "", "-fx-base: red");
+
+            if (dialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                return CompletableFuture.completedFuture(false);
+            }
+        }
+
+        CompletableFuture<Boolean> undoFuture = CompletableFuture.supplyAsync(() -> {
+            this.stateTracker.previousState().getStates().forEach((regionPos, state) -> {
                 try {
                     //TODO: only write to regions modified since the snapshot was taken
                     state.writeState(this.regionDirectory);
@@ -154,10 +170,10 @@ public class VanillaWorldState {
                 }
             });
             return true;
-        });
+        }, taskExecutor);
 
         undoFuture.whenCompleteAsync((success, throwable) -> {
-            if (!success) {
+            if (success == null || !success) {
                 return;
             }
             writtenRegions.forEach(regionPos ->
