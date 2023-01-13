@@ -144,6 +144,7 @@ public class VanillaStateTracker {
                 // Region data matches, so we add an internal state instead
                 if (dataMatchesPrevious) {
                     states.put(regionPos, externalState.asInternalState());
+                    continue;
                 }
             }
             states.put(regionPos, externalState);
