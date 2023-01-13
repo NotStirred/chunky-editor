@@ -4,9 +4,8 @@ import io.github.notstirred.chunkyeditor.Accessor;
 import io.github.notstirred.chunkyeditor.Editor;
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.minecraft.WorldLock;
-import io.github.notstirred.chunkyeditor.ui.util.StyledSpecialApprovalConfirmationDialog;
+import io.github.notstirred.chunkyeditor.state.State;
 import javafx.application.Platform;
-import javafx.scene.control.ButtonType;
 import se.llbit.chunky.world.Chunk;
 import se.llbit.chunky.world.ChunkPosition;
 import se.llbit.chunky.world.EmptyChunk;
@@ -38,7 +37,7 @@ public class VanillaWorldState {
         this.stateTracker = new VanillaStateTracker(regionDirectory);
     }
 
-    public CompletableFuture<Boolean> deleteChunks(Executor taskExecutor, Collection<ChunkPosition> chunks) {
+    public CompletableFuture<Optional<IOException>> deleteChunks(Executor taskExecutor, Collection<ChunkPosition> chunks) {
         Map<VanillaRegionPos, List<ChunkPosition>> regionSelection = new HashMap<>();
         for (ChunkPosition chunkPosition : chunks) {
             ChunkPosition asRegionPos = chunkPosition.regionPosition();
@@ -62,10 +61,10 @@ public class VanillaWorldState {
             Log.info("Invalid region file header, ignoring this file and continuing", e);
         } catch (IOException e) {
             Log.warn("Could not take snapshot of regions, aborting.", e);
-            return CompletableFuture.completedFuture(false); // We haven't started yet, so can safely cancel
+            return CompletableFuture.completedFuture(Optional.empty()); // We haven't started yet, so can safely cancel
         }
 
-        CompletableFuture<Boolean> deletionFuture = this.deleteChunks(taskExecutor, regionSelection);
+        CompletableFuture<Optional<IOException>> deletionFuture = this.deleteChunks(taskExecutor, regionSelection);
 
         deletionFuture = deletionFuture.whenCompleteAsync((result, throwable) -> {
             // take snapshot of new state to warn user if anything changed when they press undo
@@ -79,20 +78,23 @@ public class VanillaWorldState {
         return deletionFuture;
     }
 
-    private CompletableFuture<Boolean> deleteChunks(Executor taskExecutor, Map<VanillaRegionPos, List<ChunkPosition>> regionSelection) {
+    private CompletableFuture<Optional<IOException>> deleteChunks(Executor taskExecutor, Map<VanillaRegionPos, List<ChunkPosition>> regionSelection) {
         if (!worldLock.tryLock()) {
-            return CompletableFuture.completedFuture(false);
+            return CompletableFuture.completedFuture(Optional.empty());
         }
 
-        CompletableFuture<Boolean> deletionFuture = CompletableFuture.supplyAsync(() -> {
-            regionSelection.forEach((regionPos, chunkPositions) -> {
+        CompletableFuture<Optional<IOException>> deletionFuture = CompletableFuture.supplyAsync(() -> {
+            IOException suppressed = null;
+            for (Map.Entry<VanillaRegionPos, List<ChunkPosition>> entry : regionSelection.entrySet()) {
+                VanillaRegionPos regionPos = entry.getKey();
+                List<ChunkPosition> chunkPositions = entry.getValue();
                 File regionFile = this.regionDirectory.resolve(regionPos.fileName()).toFile();
 
                 try (RandomAccessFile file = new RandomAccessFile(regionFile, "rw")) {
                     long length = file.length();
                     if (length < 2 * HEADER_SIZE_BYTES) {
                         Log.warn("Missing header in region file, despite trying to delete chunks from it?!\nThis is really bad");
-                        return;
+                        continue;
                     }
 
                     for (ChunkPosition chunkPos : chunkPositions) {
@@ -104,18 +106,19 @@ public class VanillaWorldState {
                         file.writeInt(0);
                     }
                 } catch (IOException e) {
-                    throw new UncheckedIOException(e);
+                    if (suppressed == null) {
+                        suppressed = e;
+                    } else {
+                        suppressed.addSuppressed(e);
+                    }
                 }
-            });
-            return true;
+            }
+            return Optional.ofNullable(suppressed);
         }, taskExecutor);
 
-        deletionFuture.whenCompleteAsync((result, throwable) -> {
-            if (result == null || !result) { // execution or lock failure, no need to update
-                return;
-            }
+        deletionFuture.whenCompleteAsync((optionalException, throwable) -> {
             regionSelection.forEach((regionPos, chunkPositions) -> {
-                Region region = world.getRegion(ChunkPosition.get(regionPos.x, regionPos.z));
+                Region region = world.getRegion(new ChunkPosition(regionPos.x, regionPos.z));
                 for (ChunkPosition chunkPos : chunkPositions) {
                     Chunk chunk = world.getChunk(chunkPos);
                     if (!chunk.isEmpty()) {
@@ -131,33 +134,37 @@ public class VanillaWorldState {
         return deletionFuture;
     }
 
-    public CompletableFuture<Boolean> undo(Executor taskExecutor) {
+    public CompletableFuture<Optional<IOException>> undo(Executor taskExecutor) {
         if(!this.stateTracker.hasPreviousState()) {
-            return CompletableFuture.completedFuture(false);
+            return CompletableFuture.completedFuture(null);
         }
 
         if (!worldLock.tryLock())
-            return CompletableFuture.completedFuture(false);
+            return CompletableFuture.completedFuture(null);
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
 
-        CompletableFuture<Boolean> undoFuture = CompletableFuture.supplyAsync(() -> {
-            this.stateTracker.previousState().getStates().forEach((regionPos, state) -> {
+        CompletableFuture<Optional<IOException>> undoFuture = CompletableFuture.supplyAsync(() -> {
+            IOException suppressed = null;
+            for (Map.Entry<VanillaRegionPos, State<VanillaRegionPos>> entry : this.stateTracker.previousState().getStates().entrySet()) {
+                State<VanillaRegionPos> state = entry.getValue();
                 try {
                     //TODO: only write to regions modified since the snapshot was taken
                     state.writeState(this.regionDirectory);
                     writtenRegions.add(state.position());
                 } catch (IOException e) {
-                    throw new UncheckedIOException(e);
+                    if (suppressed == null) {
+                        suppressed = e;
+                    } else {
+                        suppressed.addSuppressed(e);
+                    }
                 }
-            });
-            return true;
+            }
+
+            return Optional.ofNullable(suppressed);
         }, taskExecutor);
 
-        undoFuture.whenCompleteAsync((success, throwable) -> {
-            if (success == null || !success) {
-                return;
-            }
+        undoFuture.whenCompleteAsync((v, throwable) -> {
             writtenRegions.forEach(regionPos ->
                     Editor.INSTANCE.mapLoader().regionUpdated(new ChunkPosition(regionPos.x, regionPos.z)));
         }, Platform::runLater);

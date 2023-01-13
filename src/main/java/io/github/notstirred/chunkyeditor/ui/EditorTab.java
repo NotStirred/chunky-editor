@@ -17,6 +17,7 @@ import se.llbit.chunky.world.World;
 import se.llbit.fxutil.Dialogs;
 import se.llbit.log.Log;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -42,42 +43,39 @@ public class EditorTab implements RenderControlsTab {
         deleteSelectedChunks = new Button("Delete Selected Chunks");
         deleteSelectedChunks.setTooltip(new Tooltip("Deletes the selected chunks (shocking, I know)"));
         deleteSelectedChunks.setOnMouseClicked(event -> {
+            VanillaWorldState worldState = editor.getWorldState();
+
+            if (worldState == null) // user said no to confirmation
+                return;
+
+            VanillaStateTracker stateTracker = worldState.getStateTracker();
+
+            Collection<ChunkPosition> chunkSelection = this.chunkyFxController.getChunkSelection().getSelection();
+
+            Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
+                    "Confirm chunk deletion",
+                    String.format("Do you want to delete %d chunks?", chunkSelection.size()),
+                    "These chunks will be removed from your actual Minecraft world\nIf the world is open in Minecraft, Chunky WILL break your world.\nBe sure to have a backup!",
+                    String.format("I do want to delete %d chunks", chunkSelection.size())
+            );
+            if(confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK)
+                return;
+
             try {
-                VanillaWorldState worldState = editor.getWorldState();
+                CompletableFuture<Optional<IOException>> deletionFuture = worldState.deleteChunks(this.editor::submitTask, chunkSelection);
+                // set memory usage info on clear states button
+                deletionFuture.whenCompleteAsync((result, throwable) -> {
+                    clearUndoStates.setText(String.format("%s (%dMiB)", CLEAR_UNDO_STATES_TEXT, (int) (stateTracker.statesSizeBytes() / 1024 / 1024)));
+                }, Platform::runLater);
 
-                if (worldState == null) // user said no to confirmation
-                    return;
+                //TODO: don't immediately wait for the future
+                Optional<IOException> exception = deletionFuture.get();
+                exception.ifPresent(e -> Log.warn("Error when deleting chunks", e));
 
-                VanillaStateTracker stateTracker = worldState.getStateTracker();
-
-                Collection<ChunkPosition> chunkSelection = this.chunkyFxController.getChunkSelection().getSelection();
-
-                Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
-                        "Confirm chunk deletion",
-                        String.format("Do you want to delete %d chunks?", chunkSelection.size()),
-                        "These chunks will be removed from your actual Minecraft world\nIf the world is open in Minecraft, Chunky WILL break your world.\nBe sure to have a backup!",
-                        String.format("I do want to delete %d chunks", chunkSelection.size())
-                );
-                if(confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK)
-                    return;
-
-                try {
-                    CompletableFuture<Boolean> deletionFuture = worldState.deleteChunks(this.editor::submitTask, chunkSelection);
-                    // set memory usage info on clear states button
-                    deletionFuture.whenCompleteAsync((result, throwable) -> {
-                        clearUndoStates.setText(String.format("%s (%dMiB)", CLEAR_UNDO_STATES_TEXT, (int) (stateTracker.statesSizeBytes() / 1024 / 1024)));
-                    }, Platform::runLater);
-
-                    //TODO: don't immediately wait for the future
-                    deletionFuture.get();
-
-                } catch (ExecutionException e) {
-                    Log.warn("Deletion completed exceptionally", e);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            } catch (Throwable t) {
-                t.printStackTrace();
+            } catch (ExecutionException e) {
+                Log.warn("Deletion completed exceptionally", e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         });
 
@@ -90,7 +88,8 @@ public class EditorTab implements RenderControlsTab {
                 return;
 
             try {
-                Boolean b = worldState.undo(this.editor::submitTask).get();
+                Optional<IOException> exception = worldState.undo(this.editor::submitTask).get();
+                exception.ifPresent(e -> Log.warn("Error when undoing", e));
             } catch (ExecutionException e) {
                 Log.warn("Undo completed exceptionally", e);
             } catch (InterruptedException e) {
