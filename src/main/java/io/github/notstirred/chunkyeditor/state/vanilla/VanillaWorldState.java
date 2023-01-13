@@ -40,7 +40,7 @@ public class VanillaWorldState {
     public CompletableFuture<Optional<IOException>> deleteChunks(Executor taskExecutor, Collection<ChunkPosition> chunks) {
         Map<VanillaRegionPos, List<ChunkPosition>> regionSelection = new HashMap<>();
         for (ChunkPosition chunkPosition : chunks) {
-            ChunkPosition asRegionPos = chunkPosition.regionPosition();
+            ChunkPosition asRegionPos = chunkPosition.getRegionPosition();
 
             regionSelection.computeIfAbsent(new VanillaRegionPos(asRegionPos.x, asRegionPos.z), pos -> new ArrayList<>())
                     .add(chunkPosition);
@@ -116,31 +116,31 @@ public class VanillaWorldState {
             return Optional.ofNullable(suppressed);
         }, taskExecutor);
 
-        deletionFuture.whenCompleteAsync((optionalException, throwable) -> {
-            regionSelection.forEach((regionPos, chunkPositions) -> {
-                Region region = world.getRegion(new ChunkPosition(regionPos.x, regionPos.z));
-                for (ChunkPosition chunkPos : chunkPositions) {
-                    Chunk chunk = world.getChunk(chunkPos);
-                    if (!chunk.isEmpty()) {
-                        chunk.reset();
-                        Accessor.invoke_MCRegion$setChunk((MCRegion) region, chunkPos, EmptyChunk.INSTANCE);
-                        world.chunkUpdated(chunkPos);
-                        world.chunkDeleted(chunkPos);
+        deletionFuture.whenCompleteAsync((optionalException, throwable) ->
+                regionSelection.forEach((regionPos, chunkPositions) -> {
+                    Region region = world.getRegion(new ChunkPosition(regionPos.x, regionPos.z));
+                    for (ChunkPosition chunkPos : chunkPositions) {
+                        Chunk chunk = world.getChunk(chunkPos);
+                        if (!chunk.isEmpty()) {
+                            chunk.reset();
+                            Accessor.invoke_MCRegion$setChunk((MCRegion) region, chunkPos, EmptyChunk.INSTANCE);
+                            world.chunkUpdated(chunkPos);
+                            world.chunkDeleted(chunkPos);
+                        }
                     }
-                }
-            });
-        }, Platform::runLater);
+                }), Platform::runLater
+        );
 
         return deletionFuture;
     }
 
     public CompletableFuture<Optional<IOException>> undo(Executor taskExecutor) {
         if(!this.stateTracker.hasPreviousState()) {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(Optional.empty());
         }
 
         if (!worldLock.tryLock())
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(Optional.empty());
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
 
@@ -164,10 +164,9 @@ public class VanillaWorldState {
             return Optional.ofNullable(suppressed);
         }, taskExecutor);
 
-        undoFuture.whenCompleteAsync((v, throwable) -> {
-            writtenRegions.forEach(regionPos ->
-                    Editor.INSTANCE.mapLoader().regionUpdated(new ChunkPosition(regionPos.x, regionPos.z)));
-        }, Platform::runLater);
+        undoFuture.whenCompleteAsync((v, throwable) ->
+                writtenRegions.forEach(regionPos ->
+                        Editor.INSTANCE.mapLoader().regionUpdated(new ChunkPosition(regionPos.x, regionPos.z))), Platform::runLater);
         return undoFuture;
     }
 
