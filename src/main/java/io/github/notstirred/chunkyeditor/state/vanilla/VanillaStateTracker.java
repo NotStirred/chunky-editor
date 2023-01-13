@@ -2,6 +2,7 @@ package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.state.State;
+import se.llbit.util.annotation.NotNull;
 import se.llbit.util.annotation.Nullable;
 
 import java.io.*;
@@ -78,7 +79,7 @@ public class VanillaStateTracker {
      * @param regionPositions Positions to snapshot
      * @return Null if no changes since the current snapshot
      */
-    @Nullable
+    @NotNull
     private StateGroup snapshot(Collection<VanillaRegionPos> regionPositions) throws IOException {
         StateGroup newStates = new StateGroup();
         if (this.currentStateIdx == NO_STATE) {
@@ -90,7 +91,6 @@ public class VanillaStateTracker {
         } else {
             // snapshot must check against current state to warn user
 
-            boolean anyDiffer = false;
             for (VanillaRegionPos regionPos : regionPositions) {
                 State<VanillaRegionPos> previousAny = findPreviousForRegion(regionPos);
                 ExternalState previousExternal = findPreviousExternalForRegion(regionPos);
@@ -103,24 +103,13 @@ public class VanillaStateTracker {
                         boolean headerMatchesCurrent = previousAny.headerMatches(newState);
                         if (!headerMatchesCurrent) { // only header differs? internal state
                             newState = internalStateForRegion(regionPos);
-                            anyDiffer = true;
-                        } else {
-                            int asd = 0;
                         }
-                    } else {
-                        anyDiffer = true;
                     }
-                } else {
-                    anyDiffer = true;
                 }
                 newStates.put(regionPos, newState);
             }
-
-            if (anyDiffer) {
-                return newStates;
-            }
         }
-        return null;
+        return newStates;
     }
 
     /**
@@ -173,11 +162,7 @@ public class VanillaStateTracker {
      */
     public boolean snapshotState(List<VanillaRegionPos> regionPositions) throws IOException {
         this.removeFutureStates();
-        StateGroup snapshot = snapshot(regionPositions);
-        if (snapshot == null) {
-            return false;
-        }
-        this.states.add(snapshot);
+        this.states.add(snapshot(regionPositions));
         this.currentStateIdx++;
         return true;
     }
@@ -185,7 +170,6 @@ public class VanillaStateTracker {
     public boolean hasState() {
         return this.currentStateIdx != NO_STATE;
     }
-
 
     public StateGroup currentState() {
         if (this.currentStateIdx == NO_STATE) {
