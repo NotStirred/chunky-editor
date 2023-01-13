@@ -53,6 +53,25 @@ public class ExternalState implements State<VanillaRegionPos> {
         }
     }
 
+    /**
+     * @return If the non-header portion of the state matches
+     */
+    public boolean dataMatches(State<VanillaRegionPos> other) {
+        if (other.isInternal()) {
+            return false;
+        }
+        ExternalState external = ((ExternalState) other);
+        return Arrays.equals(this.state, HEADER_SIZE_BYTES, this.state.length,
+                external.state, HEADER_SIZE_BYTES, external.state.length);
+    }
+
+    /**
+     * Get the header data from this external state as an internal state
+     */
+    public InternalState asInternalState() {
+        return new InternalState(this.pos, Arrays.copyOf(this.state, HEADER_SIZE_BYTES));
+    }
+
     @Override
     public int size() {
         return this.state.length;
@@ -64,18 +83,6 @@ public class ExternalState implements State<VanillaRegionPos> {
         if (o == null || getClass() != o.getClass()) return false;
         ExternalState that = (ExternalState) o;
         return Objects.equals(pos, that.pos) && Arrays.equals(state, that.state);
-    }
-
-    /**
-     * @return If the non-header portion of the state matches
-     */
-    public boolean dataMatches(State<VanillaRegionPos> other) {
-        if (other.isInternal()) {
-            return false;
-        }
-        ExternalState external = ((ExternalState) other);
-        return Arrays.equals(this.state, HEADER_SIZE_BYTES, this.state.length,
-                external.state, HEADER_SIZE_BYTES, external.state.length);
     }
 }
 

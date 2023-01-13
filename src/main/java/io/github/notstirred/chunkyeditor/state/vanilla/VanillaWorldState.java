@@ -51,7 +51,7 @@ public class VanillaWorldState {
         try {
             // we first overwrite the current snapshot if it exists, ready to be undone
             if (stateTracker.hasState()) {
-                stateTracker.snapshotCurrentState();
+                stateTracker.snapshotCurrentState(regions);
             } else {
                 // otherwise we just take a normal snapshot instead
                 stateTracker.snapshotState(regions);
@@ -121,6 +121,7 @@ public class VanillaWorldState {
                     if (!chunk.isEmpty()) {
                         chunk.reset();
                         Accessor.invoke_MCRegion$setChunk((MCRegion) region, chunkPos, EmptyChunk.INSTANCE);
+                        world.chunkUpdated(chunkPos);
                         world.chunkDeleted(chunkPos);
                     }
                 }
@@ -139,25 +140,6 @@ public class VanillaWorldState {
             return CompletableFuture.completedFuture(false);
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
-        try {
-            this.stateTracker.snapshotCurrentState();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
-        if (this.stateTracker.currentState().hasExternal()) {
-            // Current state has external?! Minecraft likely wrote to it.
-            StyledSpecialApprovalConfirmationDialog dialog = new StyledSpecialApprovalConfirmationDialog(
-                    "World has been modified",
-                    "Continuing this undo is EXTREMELY likely to break your world",
-                    "The world has been modified externally, continuing this undo will overwrite any changes you made.\nIt is also likely to crash chunky, and could corrupt parts of your world\nIf you ignore this MAKE A BACKUP ANYWAY",
-                    "I understand that I might corrupt my world",
-                    "", "-fx-base: red");
-
-            if (dialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
-                return CompletableFuture.completedFuture(false);
-            }
-        }
 
         CompletableFuture<Boolean> undoFuture = CompletableFuture.supplyAsync(() -> {
             this.stateTracker.previousState().getStates().forEach((regionPos, state) -> {
@@ -177,7 +159,7 @@ public class VanillaWorldState {
                 return;
             }
             writtenRegions.forEach(regionPos ->
-                    Editor.INSTANCE.mapLoader().regionUpdated(ChunkPosition.get(regionPos.x, regionPos.z)));
+                    Editor.INSTANCE.mapLoader().regionUpdated(new ChunkPosition(regionPos.x, regionPos.z)));
         }, Platform::runLater);
         return undoFuture;
     }

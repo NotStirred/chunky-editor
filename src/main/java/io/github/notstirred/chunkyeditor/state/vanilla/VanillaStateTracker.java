@@ -75,6 +75,7 @@ public class VanillaStateTracker {
     }
 
     /**
+     * @param regionPositions Positions to snapshot
      * @return Null if no changes since the current snapshot
      */
     @Nullable
@@ -103,6 +104,8 @@ public class VanillaStateTracker {
                         if (!headerMatchesCurrent) { // only header differs? internal state
                             newState = internalStateForRegion(regionPos);
                             anyDiffer = true;
+                        } else {
+                            int asd = 0;
                         }
                     } else {
                         anyDiffer = true;
@@ -121,27 +124,45 @@ public class VanillaStateTracker {
     }
 
     /**
-     * Retake the current snapshot
+     * @param forcedRegions Positions to add to the snapshot, even if they don't differ
+     */
+    private void addToSnapshot(Collection<VanillaRegionPos> forcedRegions) throws IOException {
+        if (this.currentStateIdx == NO_STATE) {
+            throw new IllegalStateException("Trying to retake snapshot when none exists");
+        }
+        StateGroup states = this.states.get(this.currentStateIdx);
+
+        // snapshot must check against current state to warn user
+        for (VanillaRegionPos regionPos : forcedRegions) {
+            var previousAny = findPreviousForRegion(regionPos);
+            var previousExternal = findPreviousExternalForRegion(regionPos);
+
+            var externalState = externalStateForRegion(regionPos);
+
+            if (previousExternal != null && previousAny != null) {
+                boolean dataMatchesPrevious = previousExternal.dataMatches(externalState);
+                // Region data matches, so we add an internal state instead
+                if (dataMatchesPrevious) {
+                    states.put(regionPos, externalState.asInternalState());
+                }
+            }
+            states.put(regionPos, externalState);
+        }
+    }
+
+    /**
+     * Retake the current snapshot, including the provided regions if they were not already
+     * @param additionalRegions Additional regions to include in the snapshot (if any)
      * @return True if a snapshot was taken (the current state differed from the new state)
      */
-    public boolean snapshotCurrentState() throws IOException {
+    public boolean snapshotCurrentState(Collection<VanillaRegionPos> additionalRegions) throws IOException {
         removeFutureStates();
 
         if (this.currentStateIdx == NO_STATE) {
             return false;
         }
 
-        StateGroup snapshot = snapshot(this.states.get(this.currentStateIdx).getStates().keySet());
-
-        if(snapshot == null) {
-            return false;
-        }
-        if (this.currentStateIdx == NO_STATE) {
-            this.states.add(snapshot);
-            this.currentStateIdx = 0;
-        } else {
-            this.states.set(this.currentStateIdx, snapshot);
-        }
+        addToSnapshot(additionalRegions);
 
         return true;
     }

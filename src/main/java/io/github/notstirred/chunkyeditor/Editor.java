@@ -95,7 +95,7 @@ public class Editor implements Plugin {
                 return null;
             }
 
-            WorldLock worldLock = WorldLock.of(worldDirectory.toPath(), (isFirstConfirm) -> {
+            WorldLock worldLock = WorldLock.of(worldDirectory.toPath(), isFirstConfirm -> {
                if (isFirstConfirm) {
                    return Editor.getUserConfirmation();
                }
