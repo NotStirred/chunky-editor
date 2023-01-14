@@ -145,7 +145,7 @@ public class Editor implements Plugin {
     private static boolean getUserConfirmation() {
         Dialog<ButtonType> confirmationDialog = Dialogs.createSpecialApprovalConfirmation(
                 "World may be open in Minecraft",
-                "It looks like your world might be open in Minecraft",
+                "Make sure your world is not open in Minecraft",
                 "Do you really want to allow Chunky to modify your world?\nIf the world is open in Minecraft, Chunky WILL break your world.\nBe sure to have a backup!",
                 "I DO NOT have this world open in Minecraft"
         );
@@ -155,11 +155,12 @@ public class Editor implements Plugin {
 
     private static boolean getScaryUserConfirmation() {
         Dialog<ButtonType> confirmationDialog = new ConfirmationDialogue(
-                "World may be open in Minecraft",
+                "World is open in Minecraft",
                 "It REALLY looks like your world might be open in Minecraft",
-                "If the world is open in Minecraft, Chunky WILL break your world.\nIf you ignore this MAKE A BACKUP ANYWAY",
+                "If the world is open in Minecraft, Chunky WILL break your world.\nIf you ignore this MAKE A BACKUP ANYWAY.\n\nContinuing could corrupt your undo states, making any future undos further break your world!",
                 "I AM 100% SURE I DO NOT HAVE THIS WORLD OPEN IN MINECRAFT",
-                "Continue and DONT Clear Undo Backups",
+                "Continue and don't Clear Undo Backups",
+                "Continuing could corrupt your undo states, making any future undos further break your world!",
                 "Continue and Clear Undo Backups"
         );
 

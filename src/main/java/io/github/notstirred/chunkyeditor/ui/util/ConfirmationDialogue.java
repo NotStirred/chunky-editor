@@ -13,6 +13,7 @@ public class ConfirmationDialogue extends Dialog<ButtonType> {
             String content,
             String checkBoxLabel,
             String buttonNoText,
+            String noButtonTooltip,
             String buttonYesText
     ) {
         this.setResultConverter(param -> param);
@@ -25,15 +26,20 @@ public class ConfirmationDialogue extends Dialog<ButtonType> {
         this.setTitle(title);
         dialogPane.setHeaderText(header);
         dialogPane.setContent(new VBox(16, new Text(content), checkBox));
-        dialogPane.getButtonTypes().addAll(ButtonType.NO, ButtonType.CANCEL, ButtonType.YES);
+        dialogPane.getButtonTypes().addAll(ButtonType.YES, ButtonType.NO, ButtonType.CANCEL);
 
         Button dontClearButton = (Button) dialogPane.lookupButton(ButtonType.NO);
         dontClearButton.setText(buttonNoText);
         dontClearButton.disableProperty().bind(checkBox.selectedProperty().not());
-        dontClearButton.setStyle("-fx-base: red");
+        dontClearButton.setStyle("-fx-base: #5b0000; -fx-text-fill: #ffd6d6");
+        dontClearButton.setTooltip(new Tooltip(noButtonTooltip));
+
         Button clearButton = (Button) dialogPane.lookupButton(ButtonType.YES);
         clearButton.setText(buttonYesText);
-        clearButton.setStyle("-fx-base: green");
         clearButton.disableProperty().bind(checkBox.selectedProperty().not());
+        clearButton.setStyle("-fx-base: #ce6700; -fx-text-fill: white");
+
+        Button cancelButton = (Button) dialogPane.lookupButton(ButtonType.CANCEL);
+        cancelButton.setStyle("-fx-base: green");
     }
 }
