@@ -9,6 +9,13 @@ import java.util.Arrays;
 
 import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
 
+/**
+ * A snapshot of the HEADER (first sector, without timestamps) (4096 bytes) of a region file.
+ * <p>
+ * "Internal" here specifies that just the header was changed, which is in practice only ever done by non-minecraft tools
+ * such as us!
+ * </p>
+ */
 public class InternalState implements State {
     /** The entire header for this state */
     final byte[] state;

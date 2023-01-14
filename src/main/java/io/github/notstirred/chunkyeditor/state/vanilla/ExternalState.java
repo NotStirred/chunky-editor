@@ -10,7 +10,11 @@ import java.util.Arrays;
 import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
 
 /**
- * Externally modified region state, such as minecraft writing to the region file
+ * A snapshot of an entire region file
+ * <p>
+ * "External" here specifies that some of the non-header data in the region file was changed, so we take the safe approach
+ * and snapshot the whole thing for the user.
+ * </p>
  */
 public class ExternalState implements State {
     final byte[] state;
