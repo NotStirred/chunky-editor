@@ -4,6 +4,7 @@ import io.github.notstirred.chunkyeditor.state.State;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 
@@ -19,8 +20,8 @@ import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.
 public class ExternalState implements State {
     final byte[] state;
 
-    ExternalState(byte[] state) {
-        this.state = state;
+    ExternalState(Path regionPath) throws IOException {
+        this.state = Files.readAllBytes(regionPath);
     }
 
     public void writeState(Path regionPath) throws IOException {
@@ -63,7 +64,7 @@ public class ExternalState implements State {
      * Get the header data from this external state as an internal state
      */
     public InternalState asInternalState() {
-        return new InternalState(Arrays.copyOf(this.state, HEADER_SIZE_BYTES));
+        return new InternalState(this);
     }
 
     @Override

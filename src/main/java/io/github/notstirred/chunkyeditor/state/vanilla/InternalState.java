@@ -20,8 +20,16 @@ public class InternalState implements State {
     /** The entire header for this state */
     final byte[] state;
 
-    InternalState(byte[] state) {
-        this.state = state;
+    InternalState(Path regionPath) throws IOException {
+        byte[] data = new byte[HEADER_SIZE_BYTES];
+        try (RandomAccessFile file = new RandomAccessFile(regionPath.toFile(), "r")) {
+            file.readFully(data);
+        }
+        this.state = data;
+    }
+
+    InternalState(ExternalState externalState) {
+        this.state = Arrays.copyOf(externalState.state, HEADER_SIZE_BYTES);
     }
 
     public void writeState(Path regionPath) throws IOException {

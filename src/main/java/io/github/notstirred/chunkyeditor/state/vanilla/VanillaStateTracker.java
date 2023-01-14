@@ -30,18 +30,11 @@ public class VanillaStateTracker {
 
     private InternalState internalStateForRegion(VanillaRegionPos regionPos) throws IOException {
         Path regionPath = this.regionDirectory.resolve(regionPos.fileName());
-
-        byte[] data = new byte[HEADER_SIZE_BYTES];
-        try (RandomAccessFile file = new RandomAccessFile(regionPath.toFile(), "r")) {
-            file.readFully(data);
-        }
-        return new InternalState(data);
+        return new InternalState(regionPath);
     }
     private ExternalState externalStateForRegion(VanillaRegionPos regionPos) throws IOException {
         Path regionPath = this.regionDirectory.resolve(regionPos.fileName());
-
-        byte[] data = Files.readAllBytes(regionPath);
-        return new ExternalState(data);
+        return new ExternalState(regionPath);
     }
 
     /**
@@ -91,6 +84,8 @@ public class VanillaStateTracker {
         } else {
             // snapshot must check against current state to warn user
 
+            //TODO: could probably be timestamp based, but I've seen some external programs intentionally keep timestamps unchanged
+            //      and so went with the super safe approach for now.
             for (VanillaRegionPos regionPos : regionPositions) {
                 State previousAny = findPreviousForRegion(regionPos);
                 ExternalState previousExternal = findPreviousExternalForRegion(regionPos);
@@ -122,6 +117,9 @@ public class VanillaStateTracker {
         StateGroup states = this.states.get(this.currentStateIdx);
 
         // snapshot must check against current state to warn user
+
+        //TODO: could probably be timestamp based, but I've seen some external programs intentionally keep timestamps unchanged
+        //      and so went with the super safe approach for now.
         for (VanillaRegionPos regionPos : forcedRegions) {
             var previousAny = findPreviousForRegion(regionPos);
             var previousExternal = findPreviousExternalForRegion(regionPos);
