@@ -35,13 +35,13 @@ public class VanillaStateTracker {
         try (RandomAccessFile file = new RandomAccessFile(regionPath.toFile(), "r")) {
             file.readFully(data);
         }
-        return new InternalState(regionPos, data);
+        return new InternalState(data);
     }
     private ExternalState externalStateForRegion(VanillaRegionPos regionPos) throws IOException {
         Path regionPath = this.regionDirectory.resolve(regionPos.fileName());
 
         byte[] data = Files.readAllBytes(regionPath);
-        return new ExternalState(regionPos, data);
+        return new ExternalState(data);
     }
 
     /**
@@ -51,7 +51,7 @@ public class VanillaStateTracker {
     @Nullable
     private ExternalState findPreviousExternalForRegion(VanillaRegionPos regionPos) {
         for (int i = currentStateIdx; i >= 0; i--) {
-            State<VanillaRegionPos> state = this.states.get(i).get(regionPos);
+            State state = this.states.get(i).get(regionPos);
             if (state != null) {
                 if (!state.isInternal()) {
                     return (ExternalState) state;
@@ -65,9 +65,9 @@ public class VanillaStateTracker {
      * @return Null if no previous state can be found for the region
      */
     @Nullable
-    private State<VanillaRegionPos> findPreviousForRegion(VanillaRegionPos regionPos) {
+    private State findPreviousForRegion(VanillaRegionPos regionPos) {
         for (int i = currentStateIdx; i >= 0; i--) {
-            State<VanillaRegionPos> state = this.states.get(i).get(regionPos);
+            State state = this.states.get(i).get(regionPos);
             if (state != null) {
                 return state;
             }
@@ -92,10 +92,10 @@ public class VanillaStateTracker {
             // snapshot must check against current state to warn user
 
             for (VanillaRegionPos regionPos : regionPositions) {
-                State<VanillaRegionPos> previousAny = findPreviousForRegion(regionPos);
+                State previousAny = findPreviousForRegion(regionPos);
                 ExternalState previousExternal = findPreviousExternalForRegion(regionPos);
 
-                State<VanillaRegionPos> newState = externalStateForRegion(regionPos);
+                State newState = externalStateForRegion(regionPos);
 
                 if (previousExternal != null && previousAny != null) {
                     boolean dataMatchesPrevious = previousExternal.dataMatches(newState);
@@ -238,17 +238,17 @@ public class VanillaStateTracker {
     }
 
     public static class StateGroup {
-        private Map<VanillaRegionPos, State<VanillaRegionPos>> states = new HashMap<>();
+        private Map<VanillaRegionPos, State> states = new HashMap<>();
         private boolean hasExternal = false;
 
-        private void put(VanillaRegionPos pos, State<VanillaRegionPos> state) {
+        private void put(VanillaRegionPos pos, State state) {
             this.states.put(pos, state);
             if (!state.isInternal()) {
                 this.hasExternal = true;
             }
         }
 
-        public State<VanillaRegionPos> get(VanillaRegionPos pos) {
+        public State get(VanillaRegionPos pos) {
             return this.states.get(pos);
         }
 
@@ -256,7 +256,7 @@ public class VanillaStateTracker {
             return hasExternal;
         }
 
-        public Map<VanillaRegionPos, State<VanillaRegionPos>> getStates() {
+        public Map<VanillaRegionPos, State> getStates() {
             return Collections.unmodifiableMap(this.states);
         }
     }

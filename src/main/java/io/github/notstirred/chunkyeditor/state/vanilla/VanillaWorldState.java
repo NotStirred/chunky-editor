@@ -146,12 +146,14 @@ public class VanillaWorldState {
 
         CompletableFuture<Optional<IOException>> undoFuture = CompletableFuture.supplyAsync(() -> {
             IOException suppressed = null;
-            for (Map.Entry<VanillaRegionPos, State<VanillaRegionPos>> entry : this.stateTracker.previousState().getStates().entrySet()) {
-                State<VanillaRegionPos> state = entry.getValue();
+            for (Map.Entry<VanillaRegionPos, State> entry : this.stateTracker.previousState().getStates().entrySet()) {
+                VanillaRegionPos position = entry.getKey();
+                State state = entry.getValue();
                 try {
                     //TODO: only write to regions modified since the snapshot was taken
-                    state.writeState(this.regionDirectory);
-                    writtenRegions.add(state.position());
+                    Path regionPath = this.regionDirectory.resolve(position.fileName());
+                    state.writeState(regionPath);
+                    writtenRegions.add(position);
                 } catch (IOException e) {
                     if (suppressed == null) {
                         suppressed = e;

@@ -1,6 +1,5 @@
 package io.github.notstirred.chunkyeditor.state.vanilla;
 
-import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.state.State;
 
 import java.io.IOException;
@@ -10,26 +9,18 @@ import java.util.Arrays;
 
 import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
 
-public class InternalState implements State<VanillaRegionPos> {
-    private final VanillaRegionPos pos;
+public class InternalState implements State {
     /** The entire header for this state */
     final byte[] state;
 
-    InternalState(VanillaRegionPos pos, byte[] state) {
-        this.pos = pos;
+    InternalState(byte[] state) {
         this.state = state;
     }
 
-    public void writeState(Path regionDirectory) throws IOException {
-        Path regionPath = regionDirectory.resolve(pos.fileName());
+    public void writeState(Path regionPath) throws IOException {
         try (RandomAccessFile file = new RandomAccessFile(regionPath.toFile(), "rw")) {
             file.write(this.state);
         }
-    }
-
-    @Override
-    public VanillaRegionPos position() {
-        return this.pos;
     }
 
     @Override
@@ -38,7 +29,7 @@ public class InternalState implements State<VanillaRegionPos> {
     }
 
     @Override
-    public boolean headerMatches(State<VanillaRegionPos> other) {
+    public boolean headerMatches(State other) {
         if (other.isInternal()) {
             InternalState internal = (InternalState) other;
             return Arrays.equals(this.state, internal.state);

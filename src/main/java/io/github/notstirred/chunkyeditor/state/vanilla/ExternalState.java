@@ -1,38 +1,28 @@
 package io.github.notstirred.chunkyeditor.state.vanilla;
 
-import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.state.State;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Objects;
 
 import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
 
 /**
  * Externally modified region state, such as minecraft writing to the region file
  */
-public class ExternalState implements State<VanillaRegionPos> {
-    private final VanillaRegionPos pos;
+public class ExternalState implements State {
     final byte[] state;
 
-    ExternalState(VanillaRegionPos pos, byte[] state) {
-        this.pos = pos;
+    ExternalState(byte[] state) {
         this.state = state;
     }
 
-    public void writeState(Path regionDirectory) throws IOException {
-        Path regionPath = regionDirectory.resolve(pos.fileName());
+    public void writeState(Path regionPath) throws IOException {
         try (FileOutputStream file = new FileOutputStream(regionPath.toFile())) {
             file.write(this.state);
         }
-    }
-
-    @Override
-    public VanillaRegionPos position() {
-        return this.pos;
     }
 
     @Override
@@ -41,7 +31,7 @@ public class ExternalState implements State<VanillaRegionPos> {
     }
 
     @Override
-    public boolean headerMatches(State<VanillaRegionPos> other) {
+    public boolean headerMatches(State other) {
         if (other.isInternal()) {
             InternalState internal = (InternalState) other;
             return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
@@ -56,7 +46,7 @@ public class ExternalState implements State<VanillaRegionPos> {
     /**
      * @return If the non-header portion of the state matches
      */
-    public boolean dataMatches(State<VanillaRegionPos> other) {
+    public boolean dataMatches(State other) {
         if (other.isInternal()) {
             return false;
         }
@@ -69,7 +59,7 @@ public class ExternalState implements State<VanillaRegionPos> {
      * Get the header data from this external state as an internal state
      */
     public InternalState asInternalState() {
-        return new InternalState(this.pos, Arrays.copyOf(this.state, HEADER_SIZE_BYTES));
+        return new InternalState(Arrays.copyOf(this.state, HEADER_SIZE_BYTES));
     }
 
     @Override
@@ -82,7 +72,7 @@ public class ExternalState implements State<VanillaRegionPos> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ExternalState that = (ExternalState) o;
-        return Objects.equals(pos, that.pos) && Arrays.equals(state, that.state);
+        return Arrays.equals(state, that.state);
     }
 }
 
