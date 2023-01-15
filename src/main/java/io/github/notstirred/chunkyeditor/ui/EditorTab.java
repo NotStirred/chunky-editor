@@ -7,7 +7,8 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.ui.controller.ChunkyFxController;
 import se.llbit.chunky.ui.controller.RenderControlsFxController;
@@ -17,8 +18,7 @@ import se.llbit.chunky.world.World;
 import se.llbit.fxutil.Dialogs;
 import se.llbit.log.Log;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -61,19 +61,21 @@ public class EditorTab implements RenderControlsTab {
             if(confirmationDialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK)
                 return;
 
+            CompletableFuture<Void> deletionFuture = worldState.deleteChunks(this.editor::submitTask, chunkSelection);
+            // null when failed to start
+            if (deletionFuture == null) {
+                return;
+            }
+            // set memory usage info on clear states button
+            deletionFuture.whenCompleteAsync((result, throwable) -> {
+                clearUndoStates.setText(String.format("%s (%dMiB)", CLEAR_UNDO_STATES_TEXT, (int) (stateTracker.statesSizeBytes() / 1024 / 1024)));
+            }, Platform::runLater);
+
             try {
-                CompletableFuture<Optional<IOException>> deletionFuture = worldState.deleteChunks(this.editor::submitTask, chunkSelection);
-                // set memory usage info on clear states button
-                deletionFuture.whenCompleteAsync((result, throwable) -> {
-                    clearUndoStates.setText(String.format("%s (%dMiB)", CLEAR_UNDO_STATES_TEXT, (int) (stateTracker.statesSizeBytes() / 1024 / 1024)));
-                }, Platform::runLater);
-
                 //TODO: don't immediately wait for the future
-                Optional<IOException> exception = deletionFuture.get();
-                exception.ifPresent(e -> Log.warn("Error when deleting chunks", e));
-
+                deletionFuture.get();
             } catch (ExecutionException e) {
-                Log.warn("Deletion completed exceptionally", e);
+                Log.warn("Error when deleting chunks", e.getCause());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -88,12 +90,15 @@ public class EditorTab implements RenderControlsTab {
                 return;
 
             try {
-                Optional<IOException> exception = worldState.undo(this.editor::submitTask).get();
-                exception.ifPresent(e -> Log.warn("Error when undoing", e));
+                CompletableFuture<Void> undoFuture = worldState.undo(this.editor::submitTask);
+                // null when failed to start
+                if (undoFuture != null) {
+                    undoFuture.get();
+                }
             } catch (ExecutionException e) {
                 Log.warn("Undo completed exceptionally", e);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                Thread.currentThread().interrupt();
             }
         });
 

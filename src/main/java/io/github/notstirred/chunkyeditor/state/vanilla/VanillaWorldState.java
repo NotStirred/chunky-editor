@@ -13,6 +13,7 @@ import se.llbit.chunky.world.World;
 import se.llbit.chunky.world.region.MCRegion;
 import se.llbit.chunky.world.region.Region;
 import se.llbit.log.Log;
+import se.llbit.util.annotation.Nullable;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -37,7 +38,15 @@ public class VanillaWorldState {
         this.stateTracker = new VanillaStateTracker(regionDirectory);
     }
 
-    public CompletableFuture<Optional<IOException>> deleteChunks(Executor taskExecutor, Collection<ChunkPosition> chunks) {
+    /**
+     * @return Null if the future failed to start because of user input or other error.
+     */
+    @Nullable
+    public CompletableFuture<Void> deleteChunks(Executor taskExecutor, Collection<ChunkPosition> chunks) {
+        if (!worldLock.tryLock()) {
+            return null;
+        }
+
         Map<VanillaRegionPos, List<ChunkPosition>> regionSelection = new HashMap<>();
         for (ChunkPosition chunkPosition : chunks) {
             ChunkPosition asRegionPos = chunkPosition.getRegionPosition();
@@ -57,29 +66,32 @@ public class VanillaWorldState {
             }
         } catch (IOException e) {
             Log.warn("Could not take snapshot of regions, aborting.", e);
-            return CompletableFuture.completedFuture(Optional.empty()); // We haven't started yet, so can safely cancel
+            return null; // We haven't started yet, so can safely cancel
         }
 
-        CompletableFuture<Optional<IOException>> deletionFuture = this.deleteChunks(taskExecutor, regionSelection);
+        CompletableFuture<Void> deletionFuture = this.deleteChunks(taskExecutor, regionSelection);
+        // deletion is now complete, we MUST NOT fail to snapshot and exit or risk an invalid state for the user
 
-        deletionFuture = deletionFuture.whenCompleteAsync((result, throwable) -> {
+        return deletionFuture.whenComplete((v, throwable) -> {
             // take snapshot of new state to warn user if anything changed when they press undo
             try {
-                stateTracker.snapshotState(regions);
+                stateTracker.snapshotStateNoFail(regions);
             } catch (IOException e) {
-                throw new UncheckedIOException(e);
+                // failed to snapshot some regions? add the exception and continue.
+                if (throwable != null) {
+                    e.addSuppressed(throwable);
+                }
+                throwable = new IOException("Failed to take a complete snapshot after deleting chunks.\nThe chunks HAVE been deleted.", e);
+            }
+            if (throwable != null) {
+                throw new RuntimeException(throwable);
             }
         });
-
-        return deletionFuture;
     }
 
-    private CompletableFuture<Optional<IOException>> deleteChunks(Executor taskExecutor, Map<VanillaRegionPos, List<ChunkPosition>> regionSelection) {
-        if (!worldLock.tryLock()) {
-            return CompletableFuture.completedFuture(Optional.empty());
-        }
-
-        CompletableFuture<Optional<IOException>> deletionFuture = CompletableFuture.supplyAsync(() -> {
+    private CompletableFuture<Void> deleteChunks(Executor taskExecutor, Map<VanillaRegionPos, List<ChunkPosition>> regionSelection) {
+        // actually "delete" the chunks, suppressing all errors and outputting them together at the end.
+        CompletableFuture<Void> deletionFuture = CompletableFuture.runAsync(() -> {
             IOException suppressed = null;
             for (Map.Entry<VanillaRegionPos, List<ChunkPosition>> entry : regionSelection.entrySet()) {
                 VanillaRegionPos regionPos = entry.getKey();
@@ -109,10 +121,15 @@ public class VanillaWorldState {
                     }
                 }
             }
-            return Optional.ofNullable(suppressed);
+
+            // rethrow suppressed exceptions
+            if (suppressed != null) {
+                throw new UncheckedIOException(suppressed);
+            }
         }, taskExecutor);
 
-        deletionFuture.whenCompleteAsync((optionalException, throwable) ->
+        // update the map view with the newly deleted chunks
+        deletionFuture.whenCompleteAsync((v, throwable) ->
                 regionSelection.forEach((regionPos, chunkPositions) -> {
                     Region region = world.getRegion(new ChunkPosition(regionPos.x(), regionPos.z()));
                     for (ChunkPosition chunkPos : chunkPositions) {
@@ -130,17 +147,19 @@ public class VanillaWorldState {
         return deletionFuture;
     }
 
-    public CompletableFuture<Optional<IOException>> undo(Executor taskExecutor) {
-        if(!this.stateTracker.hasPreviousState()) {
-            return CompletableFuture.completedFuture(Optional.empty());
-        }
-
+    /**
+     * @return Null if the future failed to start because of user input or other error.
+     */
+    @Nullable
+    public CompletableFuture<Void> undo(Executor taskExecutor) {
+        if (!this.stateTracker.hasPreviousState())
+            return null;
         if (!worldLock.tryLock())
-            return CompletableFuture.completedFuture(Optional.empty());
+            return null;
 
         List<VanillaRegionPos> writtenRegions = new ArrayList<>();
 
-        CompletableFuture<Optional<IOException>> undoFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<Void> undoFuture = CompletableFuture.runAsync(() -> {
             IOException suppressed = null;
             for (Map.Entry<VanillaRegionPos, State> entry : this.stateTracker.previousState().getStates().entrySet()) {
                 VanillaRegionPos position = entry.getKey();
@@ -158,8 +177,10 @@ public class VanillaWorldState {
                     }
                 }
             }
-
-            return Optional.ofNullable(suppressed);
+            // rethrow suppressed exceptions
+            if (suppressed != null) {
+                throw new UncheckedIOException(suppressed);
+            }
         }, taskExecutor);
 
         undoFuture.whenCompleteAsync((v, throwable) ->

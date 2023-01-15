@@ -2,15 +2,13 @@ package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.state.State;
+import se.llbit.util.Pair;
 import se.llbit.util.annotation.NotNull;
 import se.llbit.util.annotation.Nullable;
 
-import java.io.*;
-import java.nio.file.Files;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
-
-import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
 
 /**
  * Before any changes are made to the world, it should be checked against the current state to verify nothing has changed
@@ -69,6 +67,8 @@ public class VanillaStateTracker {
     }
 
     /**
+     * Attempt to take a snapshot of the requested regions.
+     *
      * @param regionPositions Positions to snapshot
      * @return Null if no changes since the current snapshot
      */
@@ -80,7 +80,6 @@ public class VanillaStateTracker {
             for (VanillaRegionPos regionPos : regionPositions) {
                 newStates.put(regionPos, externalStateForRegion(regionPos));
             }
-            return newStates;
         } else {
             // snapshot must check against current state to warn user
 
@@ -105,6 +104,69 @@ public class VanillaStateTracker {
             }
         }
         return newStates;
+    }
+
+    /**
+     * Take a snapshot of the requested regions.
+     * This method MUST attempt to snapshot every region, even if some regions fail.
+     *
+     * @param regionPositions Positions to snapshot
+     * @return Null if no changes since the current snapshot
+     */
+    @NotNull
+    private Pair<StateGroup, IOException> snapshotNoFail(Collection<VanillaRegionPos> regionPositions) {
+        IOException suppressedExceptions = null;
+
+        StateGroup states = new StateGroup();
+        if (this.currentStateIdx == NO_STATE) {
+            // snapshot can go ahead with no checks
+            for (VanillaRegionPos regionPos : regionPositions) {
+                try {
+                    states.put(regionPos, externalStateForRegion(regionPos));
+                } catch (IOException e) {
+                    if (suppressedExceptions == null) {
+                        suppressedExceptions = e;
+                    } else {
+                        suppressedExceptions.addSuppressed(e);
+                    }
+                    states.put(regionPos, null);
+                }
+            }
+        } else {
+            // snapshot must check against current state to warn user
+
+            //TODO: could probably be timestamp based, but I've seen some external programs intentionally keep timestamps unchanged
+            //      and so went with the super safe approach for now.
+            for (VanillaRegionPos regionPos : regionPositions) {
+                var previousAny = findPreviousForRegion(regionPos);
+                var previousExternal = findPreviousExternalForRegion(regionPos);
+
+                ExternalState externalState;
+                try {
+                    externalState = externalStateForRegion(regionPos);
+                } catch (IOException e) {
+                    if (suppressedExceptions == null) {
+                        suppressedExceptions = e;
+                    } else {
+                        suppressedExceptions.addSuppressed(e);
+                    }
+                    continue; // we failed to snapshot this region, continue to the next ones.
+                }
+
+                if (previousExternal != null && previousAny != null) {
+                    boolean dataMatchesPrevious = previousExternal.dataMatches(externalState);
+                    if (dataMatchesPrevious) {
+                        boolean headerMatchesCurrent = previousAny.headerMatches(externalState);
+                        if (!headerMatchesCurrent) { // only header differs? internal state
+                            states.put(regionPos, externalState.asInternalState());
+                            continue;
+                        }
+                    }
+                }
+                states.put(regionPos, externalState);
+            }
+        }
+        return new Pair<>(states, suppressedExceptions);
     }
 
     /**
@@ -162,6 +224,22 @@ public class VanillaStateTracker {
         this.removeFutureStates();
         this.states.add(snapshot(regionPositions));
         this.currentStateIdx++;
+        return true;
+    }
+
+    /**
+     * @return True if a snapshot was taken (the current state differed from the new state)
+     */
+    public boolean snapshotStateNoFail(List<VanillaRegionPos> regionPositions) throws IOException {
+        this.removeFutureStates();
+        Pair<StateGroup, IOException> snapshot = snapshotNoFail(regionPositions);
+        this.states.add(snapshot.thing1);
+        this.currentStateIdx++;
+
+        // rethrow any suppressed exceptions
+        if (snapshot.thing2 != null)
+            throw snapshot.thing2;
+
         return true;
     }
 
