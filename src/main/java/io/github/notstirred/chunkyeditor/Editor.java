@@ -20,6 +20,7 @@ import se.llbit.util.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.lang.ref.Cleaner;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -27,6 +28,7 @@ import java.util.function.Supplier;
 
 public class Editor implements Plugin {
     public static Editor INSTANCE;
+    public static final Cleaner CLEANER = Cleaner.create();
 
     private final Executor editorExecutor = new ThreadPoolExecutor(1, 1, 0L,
             TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(1));

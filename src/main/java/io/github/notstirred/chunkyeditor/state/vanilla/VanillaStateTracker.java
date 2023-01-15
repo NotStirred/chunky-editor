@@ -301,6 +301,7 @@ public class VanillaStateTracker {
      * Remove all header backups stored
      */
     public void removeAllStates() {
+        this.states.forEach(StateGroup::release);
         this.states.clear();
         this.currentStateIdx = NO_STATE;
     }
@@ -313,11 +314,20 @@ public class VanillaStateTracker {
         return bytes[0];
     }
 
+    public long statesDiskSizeBytes() {
+        long[] bytes = new long[] { 0 };
+        for (StateGroup stateGroups : this.states) {
+            stateGroups.getStates().forEach((regionPos, state) -> bytes[0] += state.onDiskSize());
+        }
+        return bytes[0];
+    }
+
     public static class StateGroup {
         private final Map<VanillaRegionPos, State> states = new HashMap<>();
 
         private void put(VanillaRegionPos pos, State state) {
             this.states.put(pos, state);
+            if (state != null) state.allowToDisk();
         }
 
         public State get(VanillaRegionPos pos) {
@@ -337,6 +347,11 @@ public class VanillaStateTracker {
 
         public Map<VanillaRegionPos, State> getStates() {
             return Collections.unmodifiableMap(this.states);
+        }
+
+        public void release() {
+            states.values().forEach(State::release);
+            states.clear();
         }
     }
 }

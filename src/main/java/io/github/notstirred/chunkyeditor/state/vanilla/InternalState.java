@@ -29,7 +29,7 @@ public class InternalState implements State {
     }
 
     InternalState(ExternalState externalState) {
-        this.state = Arrays.copyOf(externalState.state, HEADER_SIZE_BYTES);
+        this.state = externalState.getStateRegion(0, HEADER_SIZE_BYTES);
     }
 
     public void writeState(Path regionPath) throws IOException {
@@ -49,9 +49,8 @@ public class InternalState implements State {
             InternalState internal = (InternalState) other;
             return Arrays.equals(this.state, internal.state);
         } else {
-            ExternalState external = (ExternalState) other;
-            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
-                    external.state, 0, HEADER_SIZE_BYTES);
+            ExternalState that = (ExternalState) other;
+            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES, that.getStateRegion(0, HEADER_SIZE_BYTES), 0, HEADER_SIZE_BYTES);
         }
     }
 
