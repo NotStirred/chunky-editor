@@ -28,9 +28,16 @@ public interface State {
     int size();
 
     /**
-     * @return The size of the state on disk. (Currently unused)
+     * @return The size of the state on disk.
      */
     default int onDiskSize() {
         return 0;
+    }
+
+    /**
+     * Hint to allow the state to be written to disk. This should be called after
+     * it is certain this state object is not transient and may stick around for a while.
+     */
+    default void allowToDisk() {
     }
 }

@@ -68,7 +68,10 @@ public class EditorTab implements RenderControlsTab {
             }
             // set memory usage info on clear states button
             deletionFuture.whenCompleteAsync((result, throwable) -> {
-                clearUndoStates.setText(String.format("%s (%dMiB)", CLEAR_UNDO_STATES_TEXT, (int) (stateTracker.statesSizeBytes() / 1024 / 1024)));
+                clearUndoStates.setText(String.format("%s (%dMiB Memory, %dMiB Disk)",
+                        CLEAR_UNDO_STATES_TEXT,
+                        (int) (stateTracker.statesSizeBytes() / 1024 / 1024),
+                        (int) (stateTracker.statesDiskSizeBytes() / 1024 / 1024)));
             }, Platform::runLater);
 
             try {
@@ -136,6 +139,7 @@ public class EditorTab implements RenderControlsTab {
 
             clearUndoStates.setText(CLEAR_UNDO_STATES_TEXT);
             stateTracker.removeAllStates();
+            System.gc();
         });
         advancedOptionsGrid.add(clearUndoStates, 0, 0);
 

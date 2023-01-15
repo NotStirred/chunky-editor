@@ -24,6 +24,12 @@ public class VanillaStateTracker {
 
     public VanillaStateTracker(Path regionDirectory) {
         this.regionDirectory = regionDirectory;
+
+        // Hack needed on Windows to get scratch files to delete themselves properly
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            removeAllStates();
+            System.gc();
+        }));
     }
 
     private InternalState internalStateForRegion(VanillaRegionPos regionPos) throws IOException {
@@ -313,11 +319,20 @@ public class VanillaStateTracker {
         return bytes[0];
     }
 
+    public long statesDiskSizeBytes() {
+        long[] bytes = new long[] { 0 };
+        for (StateGroup stateGroups : this.states) {
+            stateGroups.getStates().forEach((regionPos, state) -> bytes[0] += state.onDiskSize());
+        }
+        return bytes[0];
+    }
+
     public static class StateGroup {
         private final Map<VanillaRegionPos, State> states = new HashMap<>();
 
         private void put(VanillaRegionPos pos, State state) {
             this.states.put(pos, state);
+            if (state != null) state.allowToDisk();
         }
 
         public State get(VanillaRegionPos pos) {

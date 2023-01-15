@@ -1,12 +1,18 @@
 package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.state.State;
+import io.github.notstirred.chunkyeditor.util.ByteBufferUtil;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 
 import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.HEADER_SIZE_BYTES;
 
@@ -18,15 +24,21 @@ import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.
  * </p>
  */
 public class ExternalState implements State {
-    final byte[] state;
+    ByteBuffer state;
 
     ExternalState(Path regionPath) throws IOException {
-        this.state = Files.readAllBytes(regionPath);
+        this.state = ByteBuffer.wrap(Files.readAllBytes(regionPath));
     }
 
     public void writeState(Path regionPath) throws IOException {
         try (FileOutputStream file = new FileOutputStream(regionPath.toFile())) {
-            file.write(this.state);
+            if (this.state.hasArray()) {
+                file.write(this.state.array());
+            } else {
+                var channel = Channels.newChannel(file);
+                this.state.clear();  // This just resets the position
+                channel.write(this.state);
+            }
         }
     }
 
@@ -38,13 +50,11 @@ public class ExternalState implements State {
     @Override
     public boolean headerMatches(State other) {
         if (other.isInternal()) {
-            InternalState internal = (InternalState) other;
-            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
-                    internal.state, 0, HEADER_SIZE_BYTES);
+            InternalState that = (InternalState) other;
+            return ByteBufferUtil.equalsRegion(this.state, that.state, 0, HEADER_SIZE_BYTES);
         } else {
-            ExternalState external = (ExternalState) other;
-            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
-                    external.state, 0, HEADER_SIZE_BYTES);
+            ExternalState that = (ExternalState) other;
+            return ByteBufferUtil.equalsRegion(this.state, that.state, 0, HEADER_SIZE_BYTES);
         }
     }
 
@@ -55,9 +65,8 @@ public class ExternalState implements State {
         if (other.isInternal()) {
             return false;
         }
-        ExternalState external = ((ExternalState) other);
-        return Arrays.equals(this.state, HEADER_SIZE_BYTES, this.state.length,
-                external.state, HEADER_SIZE_BYTES, external.state.length);
+        ExternalState that = ((ExternalState) other);
+        return ByteBufferUtil.equalsRegion(this.state, that.state, HEADER_SIZE_BYTES, this.state.capacity());
     }
 
     /**
@@ -69,7 +78,11 @@ public class ExternalState implements State {
 
     @Override
     public int size() {
-        return this.state.length;
+        if (!(this.state instanceof MappedByteBuffer)) {
+            return this.state.capacity();
+        } else {
+            return 0;
+        }
     }
 
     @Override
@@ -77,7 +90,31 @@ public class ExternalState implements State {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ExternalState that = (ExternalState) o;
-        return Arrays.equals(state, that.state);
+        return ByteBufferUtil.equals(this.state, that.state);
+    }
+
+    @Override
+    public int onDiskSize() {
+        if (this.state instanceof MappedByteBuffer) {
+            return this.state.capacity();
+        } else {
+            return 0;
+        }
+    }
+
+    @Override
+    public void allowToDisk() {
+        try {
+            File tempFile = File.createTempFile("chunky-editor-", ".bin");
+            tempFile.deleteOnExit();
+            var raFile = new RandomAccessFile(tempFile, "rw");
+            MappedByteBuffer buffer = raFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, this.state.capacity());
+
+            buffer.put(this.state);
+            this.state = buffer;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
 

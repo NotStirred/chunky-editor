@@ -1,6 +1,7 @@
 package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.state.State;
+import io.github.notstirred.chunkyeditor.util.ByteBufferUtil;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -29,7 +30,9 @@ public class InternalState implements State {
     }
 
     InternalState(ExternalState externalState) {
-        this.state = Arrays.copyOf(externalState.state, HEADER_SIZE_BYTES);
+        byte[] state = new byte[HEADER_SIZE_BYTES];
+        externalState.state.get(state);
+        this.state = state;
     }
 
     public void writeState(Path regionPath) throws IOException {
@@ -49,9 +52,8 @@ public class InternalState implements State {
             InternalState internal = (InternalState) other;
             return Arrays.equals(this.state, internal.state);
         } else {
-            ExternalState external = (ExternalState) other;
-            return Arrays.equals(this.state, 0, HEADER_SIZE_BYTES,
-                    external.state, 0, HEADER_SIZE_BYTES);
+            ExternalState that = (ExternalState) other;
+            return ByteBufferUtil.equalsRegion(that.state, this.state, 0, HEADER_SIZE_BYTES);
         }
     }
 
