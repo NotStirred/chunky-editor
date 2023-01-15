@@ -55,10 +55,6 @@ public class VanillaWorldState {
                 // otherwise we just take a normal snapshot instead
                 stateTracker.snapshotState(regions);
             }
-        } catch (FileNotFoundException e) {
-            Log.info("Could not find region file, ignoring this file and continuing", e);
-        } catch (EOFException e) {
-            Log.info("Invalid region file header, ignoring this file and continuing", e);
         } catch (IOException e) {
             Log.warn("Could not take snapshot of regions, aborting.", e);
             return CompletableFuture.completedFuture(Optional.empty()); // We haven't started yet, so can safely cancel
