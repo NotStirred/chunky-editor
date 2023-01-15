@@ -118,7 +118,7 @@ public class VanillaWorldState {
 
         deletionFuture.whenCompleteAsync((optionalException, throwable) ->
                 regionSelection.forEach((regionPos, chunkPositions) -> {
-                    Region region = world.getRegion(new ChunkPosition(regionPos.x, regionPos.z));
+                    Region region = world.getRegion(new ChunkPosition(regionPos.x(), regionPos.z()));
                     for (ChunkPosition chunkPos : chunkPositions) {
                         Chunk chunk = world.getChunk(chunkPos);
                         if (!chunk.isEmpty()) {
@@ -168,7 +168,7 @@ public class VanillaWorldState {
 
         undoFuture.whenCompleteAsync((v, throwable) ->
                 writtenRegions.forEach(regionPos ->
-                        Editor.INSTANCE.mapLoader().regionUpdated(new ChunkPosition(regionPos.x, regionPos.z))), Platform::runLater);
+                        Editor.INSTANCE.mapLoader().regionUpdated(new ChunkPosition(regionPos.x(), regionPos.z()))), Platform::runLater);
         return undoFuture;
     }
 
