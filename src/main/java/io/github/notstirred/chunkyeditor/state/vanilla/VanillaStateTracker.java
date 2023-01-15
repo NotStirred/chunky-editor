@@ -236,14 +236,10 @@ public class VanillaStateTracker {
     }
 
     public static class StateGroup {
-        private Map<VanillaRegionPos, State> states = new HashMap<>();
-        private boolean hasExternal = false;
+        private final Map<VanillaRegionPos, State> states = new HashMap<>();
 
         private void put(VanillaRegionPos pos, State state) {
             this.states.put(pos, state);
-            if (!state.isInternal()) {
-                this.hasExternal = true;
-            }
         }
 
         public State get(VanillaRegionPos pos) {
@@ -251,7 +247,14 @@ public class VanillaStateTracker {
         }
 
         public boolean hasExternal() {
-            return hasExternal;
+            for (Map.Entry<VanillaRegionPos, State> entry : this.states.entrySet()) {
+                VanillaRegionPos pos = entry.getKey();
+                State state = entry.getValue();
+                if (!state.isInternal()) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public Map<VanillaRegionPos, State> getStates() {
