@@ -40,4 +40,10 @@ public interface State {
      */
     default void allowToDisk() {
     }
+
+    /**
+     * Allow the state to release any resources. This state object must not be used after this method is called.
+     */
+    default void release() {
+    }
 }

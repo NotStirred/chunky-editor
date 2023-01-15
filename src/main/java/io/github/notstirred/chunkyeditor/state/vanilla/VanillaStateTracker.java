@@ -24,12 +24,6 @@ public class VanillaStateTracker {
 
     public VanillaStateTracker(Path regionDirectory) {
         this.regionDirectory = regionDirectory;
-
-        // Hack needed on Windows to get scratch files to delete themselves properly
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            removeAllStates();
-            System.gc();
-        }));
     }
 
     private InternalState internalStateForRegion(VanillaRegionPos regionPos) throws IOException {
@@ -307,6 +301,7 @@ public class VanillaStateTracker {
      * Remove all header backups stored
      */
     public void removeAllStates() {
+        this.states.forEach(StateGroup::release);
         this.states.clear();
         this.currentStateIdx = NO_STATE;
     }
@@ -352,6 +347,11 @@ public class VanillaStateTracker {
 
         public Map<VanillaRegionPos, State> getStates() {
             return Collections.unmodifiableMap(this.states);
+        }
+
+        public void release() {
+            states.values().forEach(State::release);
+            states.clear();
         }
     }
 }
