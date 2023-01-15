@@ -2,6 +2,7 @@ package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.Editor;
 import io.github.notstirred.chunkyeditor.state.State;
+import io.github.notstirred.chunkyeditor.util.ResourceClosedException;
 import se.llbit.log.Log;
 import se.llbit.util.annotation.Nullable;
 
@@ -34,8 +35,14 @@ public class ExternalState implements State {
 
     /**
      * @param toIndex A value of -1 signifies to the end of the state
+     * @throws IOException
+     *         If a file read or seek fails or is incomplete
+     * @throws FileNotFoundException
+     *         If the state file is not found
+     * @throws ResourceClosedException
+     *         If the state object was closed before this call
      */
-    synchronized byte[] getStateRegion(int fromIndex, int toIndex) {
+    synchronized byte[] getStateRegion(int fromIndex, int toIndex) throws IOException {
         if (toIndex == -1) {
             toIndex = stateLength;
         }
@@ -48,15 +55,13 @@ public class ExternalState implements State {
                 raf.seek(fromIndex);
                 int data = raf.read(out);
                 if (data != out.length) {
-                    throw new RuntimeException(String.format("Failed to read state region. Only read %d bytes, " +
+                    throw new IOException(String.format("Failed to read state region. Only read %d bytes, " +
                             "expected to read from %d to %d.", data, fromIndex, toIndex));
                 }
                 return out;
-            } catch (IOException e) {
-                throw new RuntimeException(e);
             }
         }
-        throw new IllegalStateException("Attempted to access a released external state object!");
+        throw new ResourceClosedException("Attempted to access a released external state object!");
     }
 
     public void writeState(Path regionPath) throws IOException {
@@ -76,7 +81,7 @@ public class ExternalState implements State {
     }
 
     @Override
-    public boolean headerMatches(State other) {
+    public boolean headerMatches(State other) throws IOException {
         if (other.isInternal()) {
             InternalState that = (InternalState) other;
             return Arrays.equals(this.getStateRegion(0, HEADER_SIZE_BYTES), 0, HEADER_SIZE_BYTES, that.state, 0, HEADER_SIZE_BYTES);
@@ -89,7 +94,7 @@ public class ExternalState implements State {
     /**
      * @return If the non-header portion of the state matches
      */
-    public boolean dataMatches(State other) {
+    public boolean dataMatches(State other) throws IOException {
         if (other.isInternal()) {
             return false;
         }
@@ -100,21 +105,13 @@ public class ExternalState implements State {
     /**
      * Get the header data from this external state as an internal state
      */
-    public InternalState asInternalState() {
+    public InternalState asInternalState() throws IOException {
         return new InternalState(this);
     }
 
     @Override
     public int size() {
         return memState != null ? stateLength : 0;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ExternalState that = (ExternalState) o;
-        return Arrays.equals(this.getStateRegion(0, -1), that.getStateRegion(0, -1));
     }
 
     @Override

@@ -154,12 +154,20 @@ public class VanillaStateTracker {
                 }
 
                 if (previousExternal != null && previousAny != null) {
-                    boolean dataMatchesPrevious = previousExternal.dataMatches(externalState);
-                    if (dataMatchesPrevious) {
-                        boolean headerMatchesCurrent = previousAny.headerMatches(externalState);
-                        if (!headerMatchesCurrent) { // only header differs? internal state
-                            states.put(regionPos, externalState.asInternalState());
-                            continue;
+                    try {
+                        boolean dataMatchesPrevious = previousExternal.dataMatches(externalState);
+                        if (dataMatchesPrevious) {
+                            boolean headerMatchesCurrent = previousAny.headerMatches(externalState);
+                            if (!headerMatchesCurrent) { // only header differs? internal state
+                                states.put(regionPos, externalState.asInternalState());
+                                continue;
+                            }
+                        }
+                    } catch (IOException e) {
+                        if (suppressedExceptions == null) {
+                            suppressedExceptions = e;
+                        } else {
+                            suppressedExceptions.addSuppressed(e);
                         }
                     }
                 }

@@ -28,7 +28,7 @@ public class InternalState implements State {
         this.state = data;
     }
 
-    InternalState(ExternalState externalState) {
+    InternalState(ExternalState externalState) throws IOException {
         this.state = externalState.getStateRegion(0, HEADER_SIZE_BYTES);
     }
 
@@ -44,7 +44,7 @@ public class InternalState implements State {
     }
 
     @Override
-    public boolean headerMatches(State other) {
+    public boolean headerMatches(State other) throws IOException {
         if (other.isInternal()) {
             InternalState internal = (InternalState) other;
             return Arrays.equals(this.state, internal.state);

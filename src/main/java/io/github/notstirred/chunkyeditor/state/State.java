@@ -15,7 +15,7 @@ public interface State {
      * @param other The other state to compare against
      * @return Whether the data within the region header matches the other state.
      */
-    boolean headerMatches(State other);
+    boolean headerMatches(State other) throws IOException;
 
     /**
      * @return Whether the state is an internal state (Modifies only the region header).
