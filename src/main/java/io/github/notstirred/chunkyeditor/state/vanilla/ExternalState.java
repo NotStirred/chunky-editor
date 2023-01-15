@@ -3,7 +3,6 @@ package io.github.notstirred.chunkyeditor.state.vanilla;
 import io.github.notstirred.chunkyeditor.Editor;
 import io.github.notstirred.chunkyeditor.state.State;
 import se.llbit.log.Log;
-import se.llbit.util.Mutable;
 import se.llbit.util.annotation.Nullable;
 
 import java.io.*;
@@ -24,13 +23,13 @@ import static io.github.notstirred.chunkyeditor.state.vanilla.VanillaWorldState.
 public class ExternalState implements State {
     final int stateLength;
     @Nullable private byte[] memState;
-    @Nullable private RandomAccessFile diskState;
+    @Nullable private File diskState;
     @Nullable private Cleaner.Cleanable diskCleaner;
 
     ExternalState(Path regionPath) throws IOException {
         this.memState = Files.readAllBytes(regionPath);
-        this.diskState = null;
         this.stateLength = this.memState.length;
+        this.diskState = null;
     }
 
     /**
@@ -45,9 +44,9 @@ public class ExternalState implements State {
         }
         if (diskState != null) {
             byte[] out = new byte[toIndex - fromIndex];
-            try {
-                diskState.seek(fromIndex);
-                int data = diskState.read(out);
+            try (var raf = new RandomAccessFile(diskState, "r")) {
+                raf.seek(fromIndex);
+                int data = raf.read(out);
                 if (data != out.length) {
                     throw new RuntimeException(String.format("Failed to read state region. Only read %d bytes, " +
                             "expected to read from %d to %d.", data, fromIndex, toIndex));
@@ -137,24 +136,16 @@ public class ExternalState implements State {
         try {
             File tempFile = File.createTempFile("chunky-editor-", ".bin");
             tempFile.deleteOnExit();
-            Mutable<RandomAccessFile> raf = new Mutable<>(null);
             diskCleaner = Editor.CLEANER.register(this, () -> {
-                var r = raf.get();
-                if (r != null) {
-                    try {
-                        r.close();
-                    } catch (IOException e) {
-                        Log.info("Failed to close random access file: " + tempFile);
-                    }
-                }
                 if (!tempFile.delete()) {
                     Log.info("Failed to delete temporary file: " + tempFile);
                 }
             });
 
-            diskState = new RandomAccessFile(tempFile, "rw");
-            raf.set(diskState);
-            diskState.write(memState);
+            try (var os = Files.newOutputStream(tempFile.toPath())) {
+                os.write(memState);
+            }
+            diskState = tempFile;
         } catch (IOException e) {
             diskState = null;
             Log.warn("Failed to commit external state to disk", e);
