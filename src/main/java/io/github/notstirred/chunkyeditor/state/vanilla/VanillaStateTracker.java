@@ -2,6 +2,7 @@ package io.github.notstirred.chunkyeditor.state.vanilla;
 
 import io.github.notstirred.chunkyeditor.VanillaRegionPos;
 import io.github.notstirred.chunkyeditor.state.State;
+import io.github.notstirred.chunkyeditor.util.ExceptionUtils;
 import se.llbit.util.Pair;
 import se.llbit.util.annotation.NotNull;
 import se.llbit.util.annotation.Nullable;
@@ -115,7 +116,7 @@ public class VanillaStateTracker {
      */
     @NotNull
     private Pair<StateGroup, IOException> snapshotNoFail(Collection<VanillaRegionPos> regionPositions) {
-        IOException suppressedExceptions = null;
+        Collection<IOException> suppressedExceptions = new ArrayList<>();
 
         StateGroup states = new StateGroup();
         if (this.currentStateIdx == NO_STATE) {
@@ -124,11 +125,7 @@ public class VanillaStateTracker {
                 try {
                     states.put(regionPos, externalStateForRegion(regionPos));
                 } catch (IOException e) {
-                    if (suppressedExceptions == null) {
-                        suppressedExceptions = e;
-                    } else {
-                        suppressedExceptions.addSuppressed(e);
-                    }
+                    suppressedExceptions.add(e);
                     states.put(regionPos, null);
                 }
             }
@@ -145,11 +142,7 @@ public class VanillaStateTracker {
                 try {
                     externalState = externalStateForRegion(regionPos);
                 } catch (IOException e) {
-                    if (suppressedExceptions == null) {
-                        suppressedExceptions = e;
-                    } else {
-                        suppressedExceptions.addSuppressed(e);
-                    }
+                    suppressedExceptions.add(e);
                     continue; // we failed to snapshot this region, continue to the next ones.
                 }
 
@@ -164,17 +157,13 @@ public class VanillaStateTracker {
                             }
                         }
                     } catch (IOException e) {
-                        if (suppressedExceptions == null) {
-                            suppressedExceptions = e;
-                        } else {
-                            suppressedExceptions.addSuppressed(e);
-                        }
+                        suppressedExceptions.add(e);
                     }
                 }
                 states.put(regionPos, externalState);
             }
         }
-        return new Pair<>(states, suppressedExceptions);
+        return new Pair<>(states, ExceptionUtils.chainSuppressedExceptions(suppressedExceptions));
     }
 
     /**
